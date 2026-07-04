@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Fluent B2 Coach",
+    "slug": "fluent-b2-coach",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#EAF8FF",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prototype.fluentb2coach"
+    },
+    "android": {
+      "package": "com.prototype.fluentb2coach"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Fluent Coach uses the microphone for voice answers and speaking practice.",
+          "recordAudioAndroid": true
+        }
+      ]
+    ]
+  }
+}

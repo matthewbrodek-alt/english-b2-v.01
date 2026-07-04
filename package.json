@@ -1,0 +1,30 @@
+{
+  "name": "english-b2-voice-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo/AppEntry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "57.0.3",
+    "expo": "57.0.2",
+    "expo-audio": "57.0.0",
+    "expo-linear-gradient": "57.0.0",
+    "expo-speech": "57.0.0",
+    "lucide-react-native": "1.23.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "typescript": "6.0.3"
+  }
+}
