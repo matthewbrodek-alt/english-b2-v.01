@@ -18,8 +18,28 @@ export type DialogueExchange = {
   number: number;
   question: string;
   answer: string;
+  questionTranslation: LocalizedText;
+  teacherNote: LocalizedText;
+  phraseNotes: PhraseNote[];
+  answerVariants: AnswerVariant[];
   tip: LocalizedText;
 };
+
+export type PhraseNote = {
+  phrase: string;
+  translation: LocalizedText;
+  explanation: LocalizedText;
+  example: string;
+};
+
+export type AnswerVariant = {
+  label: string;
+  text: string;
+  translation: LocalizedText;
+  explanation: LocalizedText;
+};
+
+type PhraseTemplate = Omit<PhraseNote, "example">;
 
 export type TestQuestion = {
   id: string;
@@ -746,86 +766,224 @@ export const topics: Topic[] = [
 ];
 
 const dialogueAngles = [
-  "open the conversation naturally",
-  "ask for clarification without sounding lost",
-  "explain your main concern",
-  "give a concrete example",
-  "compare two possible options",
-  "disagree politely",
-  "admit uncertainty",
-  "summarize what you understood",
-  "ask a follow-up question",
-  "describe a personal experience",
-  "make a careful recommendation",
-  "respond to an objection",
-  "explain the short-term consequence",
-  "explain the long-term consequence",
-  "use a more precise verb",
-  "show empathy",
-  "set a boundary",
-  "suggest a compromise",
-  "ask about priorities",
-  "describe a risk",
-  "describe a benefit",
-  "make the answer sound less direct",
-  "make the answer sound more confident",
-  "paraphrase a difficult idea",
-  "ask for evidence",
-  "mention a practical limitation",
-  "offer an alternative",
-  "connect the topic to daily life",
-  "connect the topic to work",
-  "explain why timing matters",
-  "ask for the next step",
-  "give feedback respectfully",
-  "respond to feedback",
-  "clarify responsibility",
-  "talk about cost or effort",
-  "talk about quality",
-  "use a conditional sentence",
-  "use a contrast phrase",
-  "use a cause-and-effect phrase",
-  "keep the conversation going",
-  "repair a misunderstanding",
-  "sound more diplomatic",
-  "sound more analytical",
-  "sound more spontaneous",
-  "invite the other person to contribute",
-  "check if your explanation was clear",
-  "describe a trend",
-  "describe an exception",
-  "make a prediction",
-  "explain a decision",
-  "negotiate a small change",
-  "ask for a recommendation",
-  "give a concise conclusion",
-  "end the conversation politely",
-  "reflect on what you learned"
+  { en: "open the conversation naturally", ru: "естественно начать разговор" },
+  { en: "ask for clarification without sounding lost", ru: "попросить уточнение и не звучать растерянно" },
+  { en: "explain your main concern", ru: "объяснить главную проблему или опасение" },
+  { en: "give a concrete example", ru: "привести конкретный пример" },
+  { en: "compare two possible options", ru: "сравнить два возможных варианта" },
+  { en: "disagree politely", ru: "вежливо не согласиться" },
+  { en: "admit uncertainty", ru: "признать, что ты не уверен" },
+  { en: "summarize what you understood", ru: "кратко пересказать, что ты понял" },
+  { en: "ask a follow-up question", ru: "задать уточняющий вопрос" },
+  { en: "describe a personal experience", ru: "описать личный опыт" },
+  { en: "make a careful recommendation", ru: "дать осторожную рекомендацию" },
+  { en: "respond to an objection", ru: "ответить на возражение" },
+  { en: "explain the short-term consequence", ru: "объяснить краткосрочное последствие" },
+  { en: "explain the long-term consequence", ru: "объяснить долгосрочное последствие" },
+  { en: "use a more precise verb", ru: "использовать более точный глагол" },
+  { en: "show empathy", ru: "проявить эмпатию" },
+  { en: "set a boundary", ru: "обозначить границу" },
+  { en: "suggest a compromise", ru: "предложить компромисс" },
+  { en: "ask about priorities", ru: "спросить о приоритетах" },
+  { en: "describe a risk", ru: "описать риск" },
+  { en: "describe a benefit", ru: "описать пользу" },
+  { en: "make the answer sound less direct", ru: "смягчить прямой ответ" },
+  { en: "make the answer sound more confident", ru: "сделать ответ увереннее" },
+  { en: "paraphrase a difficult idea", ru: "переформулировать сложную мысль" },
+  { en: "ask for evidence", ru: "попросить доказательства" },
+  { en: "mention a practical limitation", ru: "упомянуть практическое ограничение" },
+  { en: "offer an alternative", ru: "предложить альтернативу" },
+  { en: "connect the topic to daily life", ru: "связать тему с повседневной жизнью" },
+  { en: "connect the topic to work", ru: "связать тему с работой" },
+  { en: "explain why timing matters", ru: "объяснить, почему важны сроки" },
+  { en: "ask for the next step", ru: "спросить о следующем шаге" },
+  { en: "give feedback respectfully", ru: "дать обратную связь уважительно" },
+  { en: "respond to feedback", ru: "ответить на обратную связь" },
+  { en: "clarify responsibility", ru: "уточнить ответственность" },
+  { en: "talk about cost or effort", ru: "обсудить цену или усилия" },
+  { en: "talk about quality", ru: "поговорить о качестве" },
+  { en: "use a conditional sentence", ru: "использовать условное предложение" },
+  { en: "use a contrast phrase", ru: "использовать фразу для противопоставления" },
+  { en: "use a cause-and-effect phrase", ru: "использовать причинно-следственную связку" },
+  { en: "keep the conversation going", ru: "поддержать разговор" },
+  { en: "repair a misunderstanding", ru: "исправить недопонимание" },
+  { en: "sound more diplomatic", ru: "звучать дипломатичнее" },
+  { en: "sound more analytical", ru: "звучать более аналитично" },
+  { en: "sound more spontaneous", ru: "звучать более спонтанно" },
+  { en: "invite the other person to contribute", ru: "пригласить собеседника высказаться" },
+  { en: "check if your explanation was clear", ru: "проверить, было ли объяснение понятным" },
+  { en: "describe a trend", ru: "описать тенденцию" },
+  { en: "describe an exception", ru: "описать исключение" },
+  { en: "make a prediction", ru: "сделать прогноз" },
+  { en: "explain a decision", ru: "объяснить решение" },
+  { en: "negotiate a small change", ru: "договориться о небольшом изменении" },
+  { en: "ask for a recommendation", ru: "попросить рекомендацию" },
+  { en: "give a concise conclusion", ru: "дать краткий вывод" },
+  { en: "end the conversation politely", ru: "вежливо завершить разговор" },
+  { en: "reflect on what you learned", ru: "осмыслить, чему ты научился" }
+];
+
+const phraseBank: PhraseTemplate[] = [
+  {
+    phrase: "What I find interesting is that",
+    translation: { ru: "Что мне кажется интересным, так это то, что", en: "What I find interesting is that" },
+    explanation: {
+      ru: "Мягко вводит личное наблюдение и звучит естественнее, чем просто I think.",
+      en: "It introduces a personal observation and sounds more natural than only saying I think."
+    }
+  },
+  {
+    phrase: "From my point of view",
+    translation: { ru: "С моей точки зрения", en: "From my point of view" },
+    explanation: {
+      ru: "Подходит для мнения, особенно когда нужно звучать спокойно и аргументированно.",
+      en: "Useful for giving an opinion in a calm and reasoned way."
+    }
+  },
+  {
+    phrase: "I would say it depends on",
+    translation: { ru: "Я бы сказал, что это зависит от", en: "I would say it depends on" },
+    explanation: {
+      ru: "Хорошая B2+ структура, когда ответ не черно-белый и есть несколько условий.",
+      en: "A good B2+ structure when the answer is not black-and-white."
+    }
+  },
+  {
+    phrase: "The main challenge is",
+    translation: { ru: "Главная сложность заключается в том, что", en: "The main challenge is" },
+    explanation: {
+      ru: "Помогает быстро назвать проблему и перейти к объяснению.",
+      en: "Helps name the problem quickly and move into an explanation."
+    }
+  },
+  {
+    phrase: "A practical way to handle it is",
+    translation: { ru: "Практичный способ с этим справиться - это", en: "A practical way to handle it is" },
+    explanation: {
+      ru: "Звучит полезно в разговоре, потому что сразу ведет к решению.",
+      en: "Sounds useful in conversation because it moves directly toward a solution."
+    }
+  },
+  {
+    phrase: "I see your point, although",
+    translation: { ru: "Я понимаю твою мысль, хотя", en: "I see your point, although" },
+    explanation: {
+      ru: "Вежливая фраза для несогласия: сначала признаешь мысль собеседника, потом добавляешь свою.",
+      en: "A polite disagreement phrase: you acknowledge the other person first, then add your view."
+    }
+  }
+];
+
+const teacherConnectors: PhraseTemplate[] = [
+  {
+    phrase: "is closely connected to",
+    translation: { ru: "тесно связано с", en: "is closely connected to" },
+    explanation: {
+      ru: "Связка помогает объяснять отношения между идеями, а не просто перечислять факты.",
+      en: "This connector helps explain relationships between ideas instead of listing facts."
+    }
+  },
+  {
+    phrase: "For example",
+    translation: { ru: "Например", en: "For example" },
+    explanation: {
+      ru: "После этой фразы лучше дать конкретную ситуацию, а не повторять общую мысль.",
+      en: "After this phrase, give a concrete situation rather than repeating a general idea."
+    }
+  },
+  {
+    phrase: "What matters most",
+    translation: { ru: "Что важнее всего", en: "What matters most" },
+    explanation: {
+      ru: "Хорошая фраза для уточняющего вопроса: она показывает интерес к приоритетам собеседника.",
+      en: "A useful follow-up phrase because it shows interest in the other person's priorities."
+    }
+  }
 ];
 
 export function buildDialogue(topic: Topic): DialogueExchange[] {
   return dialogueAngles.map((angle, index) => {
     const word = topic.vocabulary[index % topic.vocabulary.length];
     const nextWord = topic.vocabulary[(index + 2) % topic.vocabulary.length];
-    const phrase = [
-      "What I find interesting is that",
-      "From my point of view",
-      "I would say it depends on",
-      "The main challenge is",
-      "A practical way to handle it is",
-      "I see your point, although"
-    ][index % 6];
+    const phrase = phraseBank[index % phraseBank.length];
+    const question = `In ${topic.setting}, how would you ${angle.en} when discussing ${word}?`;
+    const answerVariants = buildAnswerVariants(topic, word, nextWord, phrase.phrase);
+    const answer = answerVariants[0].text;
 
     return {
       number: index + 1,
-      question: `In ${topic.setting}, how would you ${angle} when discussing ${word}?`,
-      answer: `${phrase} ${word} is closely connected to ${nextWord}. I would explain it with one clear example, then ask the ${topic.role} what matters most in this situation.`,
+      question,
+      answer,
+      questionTranslation: {
+        ru: `В ситуации "${topic.setting}" как бы ты ${angle.ru}, обсуждая "${word}"?`,
+        en: question
+      },
+      teacherNote: {
+        ru: `Задача ответа: не перевести фразу дословно, а показать мысль. Скажи позицию, добавь причину, пример и короткий вопрос собеседнику.`,
+        en: `Teacher note: show your idea, add a reason, give an example, and finish with a short follow-up question.`
+      },
+      phraseNotes: [
+        {
+          ...phrase,
+          example: `${phrase.phrase} ${word} can change the whole conversation.`
+        },
+        {
+          ...teacherConnectors[index % teacherConnectors.length],
+          example: `${word} is closely connected to ${nextWord}.`
+        },
+        {
+          ...teacherConnectors[(index + 1) % teacherConnectors.length],
+          example: `For example, I would ask the ${topic.role} what matters most.`
+        }
+      ],
+      answerVariants,
       tip: {
-        ru: `Фокус: ${topic.focus}. Используй связку "${phrase}" и добавь конкретный пример.`,
-        en: `Focus: ${topic.focus}. Use "${phrase}" and add one concrete example.`
+        ru: `Фокус: ${topic.focus}. Используй связку "${phrase.phrase}" и добавь конкретный пример.`,
+        en: `Focus: ${topic.focus}. Use "${phrase.phrase}" and add one concrete example.`
       }
     };
   });
+}
+
+function buildAnswerVariants(topic: Topic, word: string, nextWord: string, starter: string): AnswerVariant[] {
+  return [
+    {
+      label: "A",
+      text: `${starter} ${word} is closely connected to ${nextWord}. I would explain it with one clear example, then ask the ${topic.role} what matters most in this situation.`,
+      translation: {
+        ru: `${starter} - "${word}" тесно связано с "${nextWord}". Я бы объяснил это на одном понятном примере, а затем спросил бы собеседника, что в этой ситуации важнее всего.`,
+        en: `${starter} ${word} is closely connected to ${nextWord}.`
+      },
+      explanation: {
+        ru: "Это универсальный правильный ответ: есть вводная фраза, связь двух идей, пример и вопрос. Он звучит уверенно, но не агрессивно.",
+        en: "This is a balanced answer with an opener, a link between ideas, an example, and a follow-up question."
+      }
+    },
+    {
+      label: "B",
+      text: `I would say it depends on the context. If ${word} affects ${nextWord}, I would give a specific example and check whether the ${topic.role} agrees with my reasoning.`,
+      translation: {
+        ru: `Я бы сказал, что это зависит от контекста. Если "${word}" влияет на "${nextWord}", я бы привел конкретный пример и уточнил, согласен ли собеседник с моей логикой.`,
+        en: `I would say it depends on the context.`
+      },
+      explanation: {
+        ru: "Этот вариант звучит более аналитично: ты показываешь условие через if, объясняешь причину и мягко проверяешь понимание.",
+        en: "This version is more analytical because it uses a condition, a reason, and a comprehension check."
+      }
+    },
+    {
+      label: "C",
+      text: `A practical way to answer is to start with the main point: ${word} matters because it changes how people think about ${nextWord}. For example, I would describe one real situation and ask what should happen next.`,
+      translation: {
+        ru: `Практичный ответ - начать с главной мысли: "${word}" важно, потому что меняет то, как люди думают о "${nextWord}". Например, я бы описал одну реальную ситуацию и спросил, что должно произойти дальше.`,
+        en: `A practical way to answer is to start with the main point.`
+      },
+      explanation: {
+        ru: "Этот вариант сильнее для разговорной практики: он дает структуру main point -> because -> for example -> next question.",
+        en: "This version is strong for speaking practice because it follows main point -> because -> example -> next question."
+      }
+    }
+  ];
 }
 
 export function buildTest(topic: Topic): TestQuestion[] {
@@ -1102,15 +1260,18 @@ export function buildTest(topic: Topic): TestQuestion[] {
 
 export const copy = {
   ru: {
-    appName: "Fluent Coach",
-    appCaption: "разговорный английский B2+",
+    appName: "English Cat Coach",
+    appCaption: "ученый кот для B2+ speaking",
     topics: "Темы",
     lesson: "Диалог",
     test: "Тест",
     results: "Результат",
-    heroTitle: "Тренируй разговорный английский на 50 темах.",
+    auth: "Вход",
+    profile: "Профиль",
+    review: "Повторение",
+    heroTitle: "Тренируй английский с ученым котом.",
     heroText:
-      "Выбирай тему, проходи 55 Q/A обменов, затем решай тест из 15 заданий. Статистика появляется только после завершения теста.",
+      "Выбирай тему, проходи 55 Q/A обменов, разбирай фразы с котом-учителем, затем решай тест из 15 заданий. Статистика появляется только после завершения теста.",
     start: "Начать урок",
     continue: "Продолжить",
     nextExchange: "Следующий обмен",
@@ -1150,18 +1311,48 @@ export const copy = {
     savedAnswer: "Сохраненный ответ",
     feedback: "Разбор ответа",
     wordCount: "Слов",
-    usedVocabulary: "Лексика темы"
+    usedVocabulary: "Лексика темы",
+    phraseCoach: "Разбор фраз",
+    translation: "Перевод",
+    threeCorrectAnswers: "3 правильных варианта ответа",
+    answerTranslation: "Перевод ответа",
+    teacherExplanation: "Объяснение учителя",
+    catTeacher: "Кот-учитель",
+    catTeacherIntro: "Разбирает фразы, предлагает 3 сильных ответа и помогает звучать естественно, а не как учебник.",
+    catLessonHint: "Сначала ответь сам. Потом сравни с тремя вариантами кота-учителя: уверенный, аналитичный и разговорный.",
+    authTitle: "Создай учебный профиль",
+    authText: "Так кот-учитель сможет сохранять прогресс, ошибки и слабые фразы на этом устройстве.",
+    namePlaceholder: "Имя",
+    emailPlaceholder: "Email",
+    authEmailError: "Введите корректный email",
+    signIn: "Войти / создать профиль",
+    signOut: "Выйти",
+    saving: "Сохраняю...",
+    localProfile: "Локальный профиль",
+    hello: "Привет",
+    completedTopics: "Пройдено тем",
+    bestScore: "Лучший балл",
+    weakPhrases: "Слабые фразы",
+    weakPhraseReview: "Повторение слабых фраз",
+    markMastered: "Выучено",
+    noWeakPhrases: "Пока нет слабых фраз. Пройди тест, и кот-учитель соберет материал для повторения.",
+    noProgressYet: "Пока нет прогресса. Заверши первый тест, чтобы появилась статистика.",
+    attempts: "Попыток",
+    lastScore: "Последний балл"
   },
   en: {
-    appName: "Fluent Coach",
-    appCaption: "B2+ speaking English",
+    appName: "English Cat Coach",
+    appCaption: "scholarly cat for B2+ speaking",
     topics: "Topics",
     lesson: "Dialogue",
     test: "Test",
     results: "Result",
-    heroTitle: "Train spoken English across 50 topics.",
+    auth: "Sign in",
+    profile: "Profile",
+    review: "Review",
+    heroTitle: "Train English with a scholarly cat.",
     heroText:
-      "Choose a topic, complete 55 Q/A exchanges, then solve a 15-task test. Statistics appear only after the test is finished.",
+      "Choose a topic, complete 55 Q/A exchanges, study phrases with the cat teacher, then solve a 15-task test. Statistics appear only after the test is finished.",
     start: "Start lesson",
     continue: "Continue",
     nextExchange: "Next exchange",
@@ -1201,6 +1392,33 @@ export const copy = {
     savedAnswer: "Saved answer",
     feedback: "Answer feedback",
     wordCount: "Words",
-    usedVocabulary: "Topic vocabulary"
+    usedVocabulary: "Topic vocabulary",
+    phraseCoach: "Phrase coaching",
+    translation: "Translation",
+    threeCorrectAnswers: "3 correct answer options",
+    answerTranslation: "Answer translation",
+    teacherExplanation: "Teacher explanation",
+    catTeacher: "Cat teacher",
+    catTeacherIntro: "Explains phrases, gives 3 strong answers, and helps you sound natural instead of textbook-like.",
+    catLessonHint: "Answer first. Then compare yourself with the cat teacher's three versions: confident, analytical, and conversational.",
+    authTitle: "Create your learning profile",
+    authText: "The cat teacher can save progress, mistakes, and weak phrases on this device.",
+    namePlaceholder: "Name",
+    emailPlaceholder: "Email",
+    authEmailError: "Enter a valid email",
+    signIn: "Sign in / create profile",
+    signOut: "Sign out",
+    saving: "Saving...",
+    localProfile: "Local profile",
+    hello: "Hello",
+    completedTopics: "Completed topics",
+    bestScore: "Best score",
+    weakPhrases: "Weak phrases",
+    weakPhraseReview: "Weak phrase review",
+    markMastered: "Mastered",
+    noWeakPhrases: "No weak phrases yet. Finish a test, and the cat teacher will collect review material.",
+    noProgressYet: "No progress yet. Finish your first test to unlock statistics.",
+    attempts: "Attempts",
+    lastScore: "Last score"
   }
 } satisfies Record<Language, Record<string, string>>;

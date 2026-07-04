@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  Image,
   Platform,
   Pressable,
   SafeAreaView,
@@ -21,34 +22,45 @@ import {
 import * as Speech from "expo-speech";
 import {
   ArrowLeft,
+  BarChart3,
   BookOpen,
+  Brain,
   CheckCircle2,
   ChevronRight,
   Languages,
   ListChecks,
+  LogOut,
   MessageCircle,
   Mic,
+  Repeat2,
   RotateCcw,
   Search,
   Trophy,
+  User,
   Volume2,
   XCircle
 } from "lucide-react-native";
+import { buildDialogue, buildTest, copy, topics } from "./src/content";
+import type { AnswerVariant, DialogueExchange, Language, PhraseNote, TestQuestion, Topic } from "./src/content";
+import { analyzeDialogueAnswer } from "./src/dialogueFeedback";
+import type { DialogueAnswer } from "./src/dialogueFeedback";
 import {
-  DialogueExchange,
-  Language,
-  TestQuestion,
-  Topic,
-  buildDialogue,
-  buildTest,
-  copy,
-  topics
-} from "./src/content";
-import { DialogueAnswer, analyzeDialogueAnswer } from "./src/dialogueFeedback";
+  getCurrentUser,
+  getUserProgress,
+  getWeakPhrases,
+  loadLearningState,
+  markWeakPhraseMastered,
+  saveTestCompletion,
+  signInLocalUser,
+  signOutLocalUser
+} from "./src/learningStore";
+import type { LearningState, TopicProgress, UserProfile, WeakPhrase } from "./src/learningStore";
 import { matchTranscriptToOption, transcribeDialogueAnswer, transcribeVoiceAnswer } from "./src/speechToText";
 import { palette, shadow } from "./src/theme";
 
-type Screen = "topics" | "lesson" | "test" | "results";
+const scholarCat = require("./assets/icon.png");
+
+type Screen = "auth" | "topics" | "lesson" | "test" | "results" | "profile" | "review";
 type CopyKey = keyof typeof copy.ru;
 
 type TestResult = {
@@ -80,15 +92,44 @@ export default function App() {
   const [dialogueDrafts, setDialogueDrafts] = useState<Record<number, string>>({});
   const [dialogueAnswers, setDialogueAnswers] = useState<Record<number, DialogueAnswer>>({});
   const [result, setResult] = useState<TestResult | null>(null);
+  const [learningState, setLearningState] = useState<LearningState>({
+    progressByUser: {},
+    users: []
+  });
+  const [learningStateLoaded, setLearningStateLoaded] = useState(false);
 
   const t = (key: CopyKey) => copy[language][key];
   const otherLanguage: Language = language === "ru" ? "en" : "ru";
+  const currentUser = useMemo(() => getCurrentUser(learningState), [learningState]);
+  const userProgress = useMemo(() => getUserProgress(learningState, currentUser), [currentUser, learningState]);
+  const weakPhrases = useMemo(() => getWeakPhrases(userProgress), [userProgress]);
 
   const dialogue = useMemo(() => buildDialogue(selectedTopic), [selectedTopic]);
   const testQuestions = useMemo(() => buildTest(selectedTopic), [selectedTopic]);
   const currentExchange = dialogue[exchangeIndex];
   const currentQuestion = testQuestions[questionIndex];
   const selectedAnswer = answers[questionIndex];
+
+  useEffect(() => {
+    let mounted = true;
+
+    loadLearningState().then((state) => {
+      if (!mounted) {
+        return;
+      }
+
+      setLearningState(state);
+      setLearningStateLoaded(true);
+
+      if (!getCurrentUser(state)) {
+        setScreen("auth");
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredTopics = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -140,6 +181,18 @@ export default function App() {
     setScreen("test");
   };
 
+  const signIn = async (name: string, email: string) => {
+    const nextState = await signInLocalUser(name, email);
+    setLearningState(nextState);
+    setScreen("topics");
+  };
+
+  const signOut = async () => {
+    const nextState = await signOutLocalUser();
+    setLearningState(nextState);
+    setScreen("auth");
+  };
+
   const chooseAnswer = (optionIndex: number) => {
     const nextAnswers = [...answers];
     nextAnswers[questionIndex] = optionIndex;
@@ -158,6 +211,17 @@ export default function App() {
       answers: finalAnswers
     });
     setScreen("results");
+
+    if (currentUser) {
+      void saveTestCompletion(learningState, currentUser, {
+        answers: finalAnswers,
+        dialogueLength: dialogue.length,
+        language,
+        questions: testQuestions,
+        score,
+        topic: selectedTopic
+      }).then(setLearningState);
+    }
   };
 
   const goNextQuestion = () => {
@@ -189,6 +253,15 @@ export default function App() {
     }));
   };
 
+  const markPhraseMastered = async (phrase: WeakPhrase) => {
+    if (!currentUser) {
+      return;
+    }
+
+    const nextState = await markWeakPhraseMastered(learningState, currentUser, phrase.phrase, phrase.topicId);
+    setLearningState(nextState);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.appShell}>
@@ -205,15 +278,52 @@ export default function App() {
             onToggleLanguage={() => setLanguage(otherLanguage)}
           />
 
+          {screen === "auth" && (
+            <AuthScreen
+              language={language}
+              loaded={learningStateLoaded}
+              t={t}
+              onSignIn={signIn}
+            />
+          )}
+
           {screen === "topics" && (
             <TopicsScreen
+              currentUser={currentUser}
               filteredTopics={filteredTopics}
               isWide={isWide}
               language={language}
+              progress={userProgress}
               search={search}
               t={t}
+              weakPhrasesCount={weakPhrases.length}
+              onOpenProfile={() => setScreen("profile")}
+              onOpenReview={() => setScreen("review")}
               onSearch={setSearch}
               onSelectTopic={startLesson}
+            />
+          )}
+
+          {screen === "profile" && currentUser && (
+            <ProfileScreen
+              language={language}
+              progress={userProgress}
+              t={t}
+              user={currentUser}
+              weakPhrasesCount={weakPhrases.length}
+              onReview={() => setScreen("review")}
+              onSignOut={signOut}
+              onTopics={() => setScreen("topics")}
+            />
+          )}
+
+          {screen === "review" && currentUser && (
+            <ReviewScreen
+              phrases={weakPhrases}
+              t={t}
+              user={currentUser}
+              onMarkMastered={markPhraseMastered}
+              onTopics={() => setScreen("topics")}
             />
           )}
 
@@ -272,6 +382,218 @@ export default function App() {
   );
 }
 
+function AuthScreen({
+  language,
+  loaded,
+  onSignIn,
+  t
+}: {
+  language: Language;
+  loaded: boolean;
+  onSignIn: (name: string, email: string) => Promise<void>;
+  t: (key: CopyKey) => string;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    setError("");
+
+    if (!email.includes("@")) {
+      setError(t("authEmailError"));
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onSignIn(name, email);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <View style={styles.authPanel}>
+      <Image resizeMode="cover" source={scholarCat} style={styles.authImage} />
+      <View style={styles.authContent}>
+        <Text style={styles.resultsTitle}>{t("authTitle")}</Text>
+        <Text style={styles.resultsCaption}>{t("authText")}</Text>
+        <TextInput
+          onChangeText={setName}
+          placeholder={t("namePlaceholder")}
+          placeholderTextColor={palette.muted}
+          style={styles.authInput}
+          value={name}
+        />
+        <TextInput
+          autoCapitalize="none"
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          placeholder={t("emailPlaceholder")}
+          placeholderTextColor={palette.muted}
+          style={styles.authInput}
+          value={email}
+        />
+        {error ? <Text style={styles.voiceErrorText}>{error}</Text> : null}
+        <Pressable
+          accessibilityRole="button"
+          disabled={!loaded || submitting}
+          onPress={submit}
+          style={[styles.primaryButton, (!loaded || submitting) && styles.disabledButton]}
+        >
+          <User color="#FFFFFF" size={19} />
+          <Text style={styles.primaryButtonText}>{submitting ? t("saving") : t("signIn")}</Text>
+        </Pressable>
+        <Text style={styles.voiceHint}>
+          {language === "ru"
+            ? "Пока это локальный профиль: данные хранятся на устройстве. Серверную авторизацию можно подключить позже."
+            : "This is a local profile for now: data is stored on this device. Server auth can be connected later."}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function ProfileScreen({
+  language,
+  onReview,
+  onSignOut,
+  onTopics,
+  progress,
+  t,
+  user,
+  weakPhrasesCount
+}: {
+  language: Language;
+  onReview: () => void;
+  onSignOut: () => void;
+  onTopics: () => void;
+  progress: Record<string, TopicProgress>;
+  t: (key: CopyKey) => string;
+  user: UserProfile;
+  weakPhrasesCount: number;
+}) {
+  const progressItems = Object.values(progress);
+  const attempts = progressItems.reduce((sum, item) => sum + item.testAttempts, 0);
+  const completedTopics = progressItems.filter((item) => item.testAttempts > 0).length;
+  const bestScore = progressItems.reduce((best, item) => Math.max(best, item.bestScore), 0);
+
+  return (
+    <View style={styles.resultsPanel}>
+      <User color={palette.skyDark} size={36} />
+      <Text style={styles.resultsTitle}>{user.name}</Text>
+      <Text style={styles.resultsCaption}>{user.email}</Text>
+
+      <View style={styles.resultGrid}>
+        <View style={styles.resultCard}>
+          <Text style={styles.resultValue}>{completedTopics}</Text>
+          <Text style={styles.resultLabel}>{t("completedTopics")}</Text>
+        </View>
+        <View style={styles.resultCard}>
+          <Text style={styles.resultValue}>{bestScore || "-"}</Text>
+          <Text style={styles.resultLabel}>{t("bestScore")}</Text>
+        </View>
+        <View style={styles.resultCard}>
+          <Text style={styles.resultValue}>{weakPhrasesCount}</Text>
+          <Text style={styles.resultLabel}>{t("weakPhrases")}</Text>
+        </View>
+      </View>
+
+      <View style={styles.reviewList}>
+        {progressItems.length === 0 ? (
+          <Text style={styles.emptyStateText}>{t("noProgressYet")}</Text>
+        ) : (
+          progressItems.map((item) => (
+            <View key={item.topicId} style={styles.reviewRow}>
+              <BarChart3 color={palette.skyDark} size={20} />
+              <View style={styles.reviewRowText}>
+                <Text style={styles.reviewQuestion}>{item.topicTitle}</Text>
+                <Text style={styles.reviewExplanation}>
+                  {t("attempts")}: {item.testAttempts} · {t("lastScore")}: {item.lastScore} · {t("bestScore")}: {item.bestScore}
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.actionRow}>
+        <Pressable accessibilityRole="button" onPress={onTopics} style={styles.secondaryButton}>
+          <ArrowLeft color={palette.skyDark} size={19} />
+          <Text style={styles.secondaryButtonText}>{t("backToTopics")}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onReview} style={styles.primaryButton}>
+          <Repeat2 color="#FFFFFF" size={19} />
+          <Text style={styles.primaryButtonText}>{t("review")}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.secondaryButton}>
+          <LogOut color={palette.skyDark} size={19} />
+          <Text style={styles.secondaryButtonText}>{t("signOut")}</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.voiceHint}>
+        {language === "ru"
+          ? "Прогресс сохраняется после завершения теста. Диалоговые ответы не начисляют баллы."
+          : "Progress is saved after finishing a test. Dialogue answers do not add scores."}
+      </Text>
+    </View>
+  );
+}
+
+function ReviewScreen({
+  onMarkMastered,
+  onTopics,
+  phrases,
+  t,
+  user
+}: {
+  onMarkMastered: (phrase: WeakPhrase) => void;
+  onTopics: () => void;
+  phrases: WeakPhrase[];
+  t: (key: CopyKey) => string;
+  user: UserProfile;
+}) {
+  return (
+    <View style={styles.resultsPanel}>
+      <Brain color={palette.green} size={38} />
+      <Text style={styles.resultsTitle}>{t("weakPhraseReview")}</Text>
+      <Text style={styles.resultsCaption}>
+        {user.name} · {t("weakPhrases")}: {phrases.length}
+      </Text>
+
+      <View style={styles.reviewList}>
+        {phrases.length === 0 ? (
+          <Text style={styles.emptyStateText}>{t("noWeakPhrases")}</Text>
+        ) : (
+          phrases.map((phrase) => (
+            <View key={`${phrase.topicId}-${phrase.phrase}`} style={styles.phraseReviewCard}>
+              <View style={styles.dialogueBlockTop}>
+                <Text style={styles.phraseText}>{phrase.phrase}</Text>
+                <View style={styles.progressBadge}>
+                  <Text style={styles.progressBadgeText}>x{phrase.timesMissed}</Text>
+                </View>
+              </View>
+              <Text style={styles.teacherNoteText}>{phrase.reason}</Text>
+              <Text style={styles.voiceHint}>{phrase.topicTitle}</Text>
+              <Pressable accessibilityRole="button" onPress={() => onMarkMastered(phrase)} style={styles.secondaryButton}>
+                <CheckCircle2 color={palette.green} size={18} />
+                <Text style={styles.secondaryButtonText}>{t("markMastered")}</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+      </View>
+
+      <Pressable accessibilityRole="button" onPress={onTopics} style={styles.primaryButton}>
+        <ArrowLeft color="#FFFFFF" size={19} />
+        <Text style={styles.primaryButtonText}>{t("backToTopics")}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function Header({
   language,
   onBack,
@@ -288,13 +610,13 @@ function Header({
   return (
     <View style={styles.header}>
       <View style={styles.logoBlock}>
-        {screen !== "topics" && (
+        {screen !== "topics" && screen !== "auth" && (
           <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
             <ArrowLeft color={palette.ink} size={20} />
           </Pressable>
         )}
         <View style={styles.logoMark}>
-          <Text style={styles.logoText}>B2</Text>
+          <Image resizeMode="cover" source={scholarCat} style={styles.logoImage} />
         </View>
         <View>
           <Text style={styles.appName}>{t("appName")}</Text>
@@ -305,7 +627,19 @@ function Header({
       <View style={styles.headerRight}>
         <View style={styles.screenBadge}>
           <Text style={styles.screenBadgeText}>
-            {screen === "topics" ? t("topics") : screen === "lesson" ? t("lesson") : screen === "test" ? t("test") : t("results")}
+            {screen === "topics"
+              ? t("topics")
+              : screen === "lesson"
+                ? t("lesson")
+                : screen === "test"
+                  ? t("test")
+                  : screen === "auth"
+                    ? t("auth")
+                    : screen === "profile"
+                      ? t("profile")
+                      : screen === "review"
+                        ? t("review")
+                        : t("results")}
           </Text>
         </View>
         <Pressable accessibilityRole="button" onPress={onToggleLanguage} style={styles.languageButton}>
@@ -318,22 +652,35 @@ function Header({
 }
 
 function TopicsScreen({
+  currentUser,
   filteredTopics,
   isWide,
   language,
+  onOpenProfile,
+  onOpenReview,
   onSearch,
   onSelectTopic,
+  progress,
   search,
-  t
+  t,
+  weakPhrasesCount
 }: {
+  currentUser?: UserProfile;
   filteredTopics: Topic[];
   isWide: boolean;
   language: Language;
+  onOpenProfile: () => void;
+  onOpenReview: () => void;
   onSearch: (value: string) => void;
   onSelectTopic: (topic: Topic) => void;
+  progress: Record<string, TopicProgress>;
   search: string;
   t: (key: CopyKey) => string;
+  weakPhrasesCount: number;
 }) {
+  const completedTopics = Object.values(progress).filter((item) => item.testAttempts > 0).length;
+  const bestScore = Object.values(progress).reduce((best, item) => Math.max(best, item.bestScore), 0);
+
   return (
     <View style={styles.screenGap}>
       <LinearGradient colors={["#EAF8FF", "#FFFFFF"]} style={styles.heroPanel}>
@@ -344,6 +691,33 @@ function TopicsScreen({
         </View>
         <Text style={styles.heroTitle}>{t("heroTitle")}</Text>
         <Text style={styles.heroCopy}>{t("heroText")}</Text>
+        <View style={styles.catHeroPanel}>
+          <Image resizeMode="cover" source={scholarCat} style={styles.catHeroImage} />
+          <View style={styles.catHeroTextBlock}>
+            <Text style={styles.catHeroTitle}>{t("catTeacher")}</Text>
+            <Text style={styles.catHeroText}>{t("catTeacherIntro")}</Text>
+          </View>
+        </View>
+        <View style={styles.profileQuickPanel}>
+          <View style={styles.profileQuickText}>
+            <Text style={styles.profileQuickTitle}>
+              {currentUser ? `${t("hello")}, ${currentUser.name}` : t("localProfile")}
+            </Text>
+            <Text style={styles.profileQuickMeta}>
+              {t("completedTopics")}: {completedTopics} · {t("bestScore")}: {bestScore || "-"} · {t("weakPhrases")}: {weakPhrasesCount}
+            </Text>
+          </View>
+          <View style={styles.profileQuickActions}>
+            <Pressable accessibilityRole="button" onPress={onOpenProfile} style={styles.secondaryButton}>
+              <User color={palette.skyDark} size={18} />
+              <Text style={styles.secondaryButtonText}>{t("profile")}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={onOpenReview} style={styles.primaryButton}>
+              <Repeat2 color="#FFFFFF" size={18} />
+              <Text style={styles.primaryButtonText}>{t("review")}</Text>
+            </Pressable>
+          </View>
+        </View>
       </LinearGradient>
 
       <View style={styles.searchBox}>
@@ -527,12 +901,25 @@ function LessonScreen({
 
           <Text style={styles.topicDescription}>{topic.description[language]}</Text>
 
+          <View style={styles.catLessonPanel}>
+            <Image resizeMode="cover" source={scholarCat} style={styles.catLessonImage} />
+            <View style={styles.catLessonTextBlock}>
+              <Text style={styles.catHeroTitle}>{t("catTeacher")}</Text>
+              <Text style={styles.catHeroText}>{t("catLessonHint")}</Text>
+            </View>
+          </View>
+
           <DialogueBlock
             label={t("question")}
             text={exchange.question}
+            translationLabel={t("translation")}
+            translation={exchange.questionTranslation[language]}
+            teacherNote={exchange.teacherNote[language]}
             tone="question"
             onSpeak={() => onSpeak(exchange.question)}
           />
+
+          <PhraseCoachPanel language={language} phraseNotes={exchange.phraseNotes} t={t} />
 
           <View style={styles.answerComposer}>
             <View style={styles.answerComposerTop}>
@@ -603,11 +990,11 @@ function LessonScreen({
             {voiceError ? <Text style={styles.voiceErrorText}>{voiceError}</Text> : null}
           </View>
 
-          <DialogueBlock
-            label={t("answer")}
-            text={exchange.answer}
-            tone="answer"
-            onSpeak={() => onSpeak(exchange.answer)}
+          <AnswerVariantsPanel
+            language={language}
+            onSpeak={onSpeak}
+            t={t}
+            variants={exchange.answerVariants}
           />
 
           <View style={styles.tipBox}>
@@ -953,12 +1340,18 @@ function DialogueBlock({
   label,
   onSpeak,
   text,
-  tone
+  tone,
+  teacherNote,
+  translation,
+  translationLabel
 }: {
   label: string;
   onSpeak: () => void;
+  teacherNote?: string;
   text: string;
   tone: "question" | "answer";
+  translation?: string;
+  translationLabel?: string;
 }) {
   return (
     <View style={[styles.dialogueBlock, tone === "answer" && styles.answerBlock]}>
@@ -969,6 +1362,80 @@ function DialogueBlock({
         </Pressable>
       </View>
       <Text style={styles.dialogueText}>{text}</Text>
+      {translation ? (
+        <View style={styles.translationBox}>
+          <Text style={styles.translationLabel}>{translationLabel}</Text>
+          <Text style={styles.translationText}>{translation}</Text>
+        </View>
+      ) : null}
+      {teacherNote ? <Text style={styles.teacherNoteText}>{teacherNote}</Text> : null}
+    </View>
+  );
+}
+
+function PhraseCoachPanel({
+  language,
+  phraseNotes,
+  t
+}: {
+  language: Language;
+  phraseNotes: PhraseNote[];
+  t: (key: CopyKey) => string;
+}) {
+  return (
+    <View style={styles.teacherPanel}>
+      <Text style={styles.teacherPanelTitle}>{t("phraseCoach")}</Text>
+      <View style={styles.phraseList}>
+        {phraseNotes.map((note) => (
+          <View key={`${note.phrase}-${note.example}`} style={styles.phraseCard}>
+            <Text style={styles.phraseText}>{note.phrase}</Text>
+            <Text style={styles.translationText}>{note.translation[language]}</Text>
+            <Text style={styles.teacherNoteText}>{note.explanation[language]}</Text>
+            <Text style={styles.voiceHint}>{note.example}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function AnswerVariantsPanel({
+  language,
+  onSpeak,
+  t,
+  variants
+}: {
+  language: Language;
+  onSpeak: (text: string) => void;
+  t: (key: CopyKey) => string;
+  variants: AnswerVariant[];
+}) {
+  return (
+    <View style={styles.teacherPanel}>
+      <Text style={styles.teacherPanelTitle}>{t("threeCorrectAnswers")}</Text>
+      <View style={styles.variantList}>
+        {variants.map((variant) => (
+          <View key={variant.label} style={styles.variantCard}>
+            <View style={styles.dialogueBlockTop}>
+              <View style={styles.optionLetter}>
+                <Text style={styles.optionLetterText}>{variant.label}</Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => onSpeak(variant.text)} style={styles.listenButton}>
+                <Volume2 color={palette.skyDark} size={17} />
+              </Pressable>
+            </View>
+            <Text style={styles.dialogueText}>{variant.text}</Text>
+            <View style={styles.translationBox}>
+              <Text style={styles.translationLabel}>{t("answerTranslation")}</Text>
+              <Text style={styles.translationText}>{variant.translation[language]}</Text>
+            </View>
+            <View style={styles.explanationBox}>
+              <Text style={styles.translationLabel}>{t("teacherExplanation")}</Text>
+              <Text style={styles.feedbackText}>{variant.explanation.ru}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -1027,16 +1494,18 @@ const styles = StyleSheet.create({
   },
   logoMark: {
     alignItems: "center",
-    backgroundColor: palette.sky,
+    backgroundColor: palette.cream,
     borderRadius: 8,
+    borderColor: "#F2D99B",
+    borderWidth: 1,
     height: 42,
     justifyContent: "center",
+    overflow: "hidden",
     width: 42
   },
-  logoText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "900"
+  logoImage: {
+    height: 42,
+    width: 42
   },
   appName: {
     color: palette.ink,
@@ -1129,6 +1598,72 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     marginTop: 12,
     maxWidth: 760
+  },
+  catHeroPanel: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.82)",
+    borderColor: "#F2D99B",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginTop: 18,
+    padding: 12
+  },
+  catHeroImage: {
+    borderRadius: 8,
+    height: 86,
+    width: 86
+  },
+  catHeroTextBlock: {
+    flex: 1,
+    minWidth: 220
+  },
+  catHeroTitle: {
+    color: palette.navy,
+    fontSize: 16,
+    fontWeight: "900"
+  },
+  catHeroText: {
+    color: palette.muted,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+    marginTop: 4
+  },
+  profileQuickPanel: {
+    alignItems: "center",
+    backgroundColor: palette.cream,
+    borderColor: "#F2D99B",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 14,
+    padding: 12
+  },
+  profileQuickText: {
+    flex: 1,
+    minWidth: 220
+  },
+  profileQuickTitle: {
+    color: palette.navy,
+    fontSize: 16,
+    fontWeight: "900"
+  },
+  profileQuickMeta: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 19,
+    marginTop: 3
+  },
+  profileQuickActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
   },
   searchBox: {
     alignItems: "center",
@@ -1313,6 +1848,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22
   },
+  catLessonPanel: {
+    alignItems: "center",
+    backgroundColor: palette.cream,
+    borderColor: "#F2D99B",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 12
+  },
+  catLessonImage: {
+    borderRadius: 8,
+    height: 64,
+    width: 64
+  },
+  catLessonTextBlock: {
+    flex: 1,
+    minWidth: 0
+  },
   dialogueBlock: {
     backgroundColor: "#F0F7FB",
     borderRadius: 8,
@@ -1397,6 +1951,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20
+  },
+  teacherPanel: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9F2FF",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 11,
+    padding: 12
+  },
+  teacherPanelTitle: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: "900"
+  },
+  phraseList: {
+    gap: 9
+  },
+  phraseCard: {
+    backgroundColor: "#F7FBFE",
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+    padding: 11
+  },
+  phraseText: {
+    color: palette.skyDark,
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 21
+  },
+  translationBox: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E6F3FA",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+    padding: 10
+  },
+  translationLabel: {
+    color: palette.skyDark,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  translationText: {
+    color: palette.ink,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20
+  },
+  explanationBox: {
+    backgroundColor: "#F0F7FB",
+    borderRadius: 8,
+    gap: 5,
+    padding: 10
+  },
+  teacherNoteText: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19
+  },
+  variantList: {
+    gap: 10
+  },
+  variantCard: {
+    backgroundColor: "#EAFBF5",
+    borderColor: "#BDEEDC",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 9,
+    padding: 12
   },
   tipBox: {
     backgroundColor: palette.softBlue,
@@ -1493,6 +2120,38 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontWeight: "900",
     lineHeight: 28
+  },
+  authPanel: {
+    alignItems: "center",
+    backgroundColor: palette.surface,
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 16,
+    padding: 18,
+    ...shadow
+  },
+  authImage: {
+    borderRadius: 8,
+    height: 128,
+    width: 128
+  },
+  authContent: {
+    alignItems: "stretch",
+    gap: 12,
+    maxWidth: 520,
+    width: "100%"
+  },
+  authInput: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9F2FF",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: "800",
+    minHeight: 48,
+    paddingHorizontal: 13
   },
   voiceTestPanel: {
     backgroundColor: palette.softBlue,
@@ -1679,6 +2338,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     padding: 12
+  },
+  phraseReviewCard: {
+    backgroundColor: "#F7FBFE",
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 9,
+    padding: 12
+  },
+  emptyStateText: {
+    color: palette.muted,
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 22,
+    padding: 12,
+    textAlign: "center"
   },
   reviewRowText: {
     flex: 1
