@@ -26,7 +26,9 @@ import {
   BookOpen,
   Brain,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Languages,
   ListChecks,
   LogOut,
@@ -40,7 +42,7 @@ import {
   Volume2,
   XCircle
 } from "lucide-react-native";
-import { buildDialogue, buildTest, copy, topics } from "./src/content";
+import { buildDialogue, buildTest, copy, getVocabularyRu, topics } from "./src/content";
 import type { AnswerVariant, DialogueExchange, Language, PhraseNote, TestQuestion, Topic } from "./src/content";
 import { analyzeDialogueAnswer } from "./src/dialogueFeedback";
 import type { DialogueAnswer } from "./src/dialogueFeedback";
@@ -60,7 +62,20 @@ import { palette, shadow } from "./src/theme";
 
 const scholarCat = require("./assets/icon.png");
 
-type Screen = "auth" | "topics" | "lesson" | "test" | "results" | "profile" | "review";
+type Screen =
+  | "auth"
+  | "dashboard"
+  | "topics"
+  | "course"
+  | "dictionary"
+  | "homework"
+  | "trainer"
+  | "speaking"
+  | "lesson"
+  | "test"
+  | "results"
+  | "profile"
+  | "review";
 type CopyKey = keyof typeof copy.ru;
 
 type TestResult = {
@@ -78,11 +93,91 @@ type VoiceAnswer = {
   transcript: string;
 };
 
+type GrammarTask = {
+  correctIndex: number;
+  explanation: Record<Language, string>;
+  options: string[];
+  prompt: Record<Language, string>;
+};
+
+type LessonPanelKey = "question" | "answer" | "phrases" | "examples" | "tip";
+
+const lessonPanelButtons: Array<{ key: LessonPanelKey; label: CopyKey }> = [
+  { key: "question", label: "questionSection" },
+  { key: "answer", label: "answerSection" },
+  { key: "phrases", label: "phrasesSection" },
+  { key: "examples", label: "examplesSection" },
+  { key: "tip", label: "tipSection" }
+];
+
+const grammarTasks: GrammarTask[] = [
+  {
+    correctIndex: 1,
+    explanation: {
+      en: "Use the present perfect when the result is connected to now: 'has improved'.",
+      ru: "Нужен present perfect, потому что результат важен сейчас: 'has improved'."
+    },
+    options: ["improved", "has improved", "had improved"],
+    prompt: {
+      en: "My pronunciation ___ a lot since I started shadowing native speakers.",
+      ru: "Выбери естественный вариант: My pronunciation ___ a lot since I started shadowing native speakers."
+    }
+  },
+  {
+    correctIndex: 2,
+    explanation: {
+      en: "'Would rather' is followed by the base verb: 'would rather discuss'.",
+      ru: "После 'would rather' ставим глагол без to: 'would rather discuss'."
+    },
+    options: ["would rather to discuss", "would rather discussing", "would rather discuss"],
+    prompt: {
+      en: "I ___ the details after we see the first results.",
+      ru: "Как сказать: 'Я бы предпочёл обсудить детали после первых результатов'?"
+    }
+  },
+  {
+    correctIndex: 0,
+    explanation: {
+      en: "'Even though' introduces contrast and sounds natural in a B2+ argument.",
+      ru: "'Even though' вводит уступку: мысль становится живее и точнее, чем с прямым 'but'."
+    },
+    options: ["Even though", "Because", "In order to"],
+    prompt: {
+      en: "___ the plan is risky, it could save us time.",
+      ru: "Выбери связку для смысла: 'Хотя план рискованный, он может сэкономить время'."
+    }
+  },
+  {
+    correctIndex: 1,
+    explanation: {
+      en: "For a polite suggestion, 'you might want to' is softer than 'you must'.",
+      ru: "'You might want to' звучит как мягкий совет, а не приказ."
+    },
+    options: ["you must", "you might want to", "you are forced to"],
+    prompt: {
+      en: "If your answer sounds too direct, ___ add a short reason.",
+      ru: "Как мягко посоветовать добавить короткое объяснение?"
+    }
+  },
+  {
+    correctIndex: 2,
+    explanation: {
+      en: "'The more..., the more...' is the natural comparative structure.",
+      ru: "Конструкция 'the more..., the more...' передаёт зависимость: чем больше одно, тем больше другое."
+    },
+    options: ["More I practice, more confident I feel", "The more I practice, more confident I feel", "The more I practice, the more confident I feel"],
+    prompt: {
+      en: "Choose the natural sentence.",
+      ru: "Выбери естественное предложение."
+    }
+  }
+];
+
 export default function App() {
   const { width } = useWindowDimensions();
   const isWide = width >= 820;
   const [language, setLanguage] = useState<Language>("ru");
-  const [screen, setScreen] = useState<Screen>("topics");
+  const [screen, setScreen] = useState<Screen>("dashboard");
   const [search, setSearch] = useState("");
   const [selectedTopic, setSelectedTopic] = useState<Topic>(topics[0]);
   const [exchangeIndex, setExchangeIndex] = useState(0);
@@ -103,6 +198,10 @@ export default function App() {
   const currentUser = useMemo(() => getCurrentUser(learningState), [learningState]);
   const userProgress = useMemo(() => getUserProgress(learningState, currentUser), [currentUser, learningState]);
   const weakPhrases = useMemo(() => getWeakPhrases(userProgress), [userProgress]);
+  const nextTopic = useMemo(
+    () => topics.find((topic) => !userProgress[topic.id]?.testAttempts) ?? topics[0],
+    [userProgress]
+  );
 
   const dialogue = useMemo(() => buildDialogue(selectedTopic), [selectedTopic]);
   const testQuestions = useMemo(() => buildTest(selectedTopic), [selectedTopic]);
@@ -181,10 +280,19 @@ export default function App() {
     setScreen("test");
   };
 
+  const startTopicTest = (topic: Topic) => {
+    setSelectedTopic(topic);
+    setQuestionIndex(0);
+    setAnswers([]);
+    setVoiceAnswers({});
+    setResult(null);
+    setScreen("test");
+  };
+
   const signIn = async (name: string, email: string) => {
     const nextState = await signInLocalUser(name, email);
     setLearningState(nextState);
-    setScreen("topics");
+    setScreen("dashboard");
   };
 
   const signOut = async () => {
@@ -274,7 +382,7 @@ export default function App() {
             language={language}
             screen={screen}
             t={t}
-            onBack={() => setScreen("topics")}
+            onBack={() => setScreen("dashboard")}
             onToggleLanguage={() => setLanguage(otherLanguage)}
           />
 
@@ -284,6 +392,75 @@ export default function App() {
               loaded={learningStateLoaded}
               t={t}
               onSignIn={signIn}
+            />
+          )}
+
+          {screen === "dashboard" && (
+            <DashboardScreen
+              currentUser={currentUser}
+              language={language}
+              nextTopic={nextTopic}
+              progress={userProgress}
+              t={t}
+              weakPhrasesCount={weakPhrases.length}
+              onOpenCourse={() => setScreen("course")}
+              onOpenDictionary={() => setScreen("dictionary")}
+              onOpenHomework={() => setScreen("homework")}
+              onOpenProfile={() => setScreen("profile")}
+              onOpenReview={() => setScreen("review")}
+              onOpenSpeaking={() => setScreen("speaking")}
+              onOpenTopics={() => setScreen("topics")}
+              onOpenTrainer={() => setScreen("trainer")}
+              onStartLesson={() => startLesson(nextTopic)}
+            />
+          )}
+
+          {screen === "course" && (
+            <CourseScreen
+              isWide={isWide}
+              language={language}
+              progress={userProgress}
+              t={t}
+              onSelectTopic={startLesson}
+            />
+          )}
+
+          {screen === "dictionary" && (
+            <DictionaryScreen
+              language={language}
+              onSelectTopic={startLesson}
+              onSpeak={speak}
+              t={t}
+            />
+          )}
+
+          {screen === "homework" && (
+            <HomeworkScreen
+              language={language}
+              nextTopic={nextTopic}
+              t={t}
+              weakPhrasesCount={weakPhrases.length}
+              onOpenReview={() => setScreen("review")}
+              onStartLesson={startLesson}
+              onStartTest={() => startTopicTest(nextTopic)}
+            />
+          )}
+
+          {screen === "trainer" && (
+            <GrammarTrainerScreen
+              language={language}
+              onSpeak={speak}
+              t={t}
+            />
+          )}
+
+          {screen === "speaking" && (
+            <SpeakingScreen
+              language={language}
+              onSelectTopic={startLesson}
+              onSpeak={speak}
+              t={t}
+              topic={selectedTopic}
             />
           )}
 
@@ -379,6 +556,539 @@ export default function App() {
         </ScrollView>
       </View>
     </SafeAreaView>
+  );
+}
+
+function DashboardScreen({
+  currentUser,
+  language,
+  nextTopic,
+  onOpenCourse,
+  onOpenDictionary,
+  onOpenHomework,
+  onOpenProfile,
+  onOpenReview,
+  onOpenSpeaking,
+  onOpenTopics,
+  onOpenTrainer,
+  onStartLesson,
+  progress,
+  t,
+  weakPhrasesCount
+}: {
+  currentUser?: UserProfile;
+  language: Language;
+  nextTopic: Topic;
+  onOpenCourse: () => void;
+  onOpenDictionary: () => void;
+  onOpenHomework: () => void;
+  onOpenProfile: () => void;
+  onOpenReview: () => void;
+  onOpenSpeaking: () => void;
+  onOpenTopics: () => void;
+  onOpenTrainer: () => void;
+  onStartLesson: () => void;
+  progress: Record<string, TopicProgress>;
+  t: (key: CopyKey) => string;
+  weakPhrasesCount: number;
+}) {
+  const progressItems = Object.values(progress);
+  const completedTopics = progressItems.filter((item) => item.testAttempts > 0).length;
+  const bestScore = progressItems.reduce((best, item) => Math.max(best, item.bestScore), 0);
+  const coursePercent = Math.round((completedTopics / topics.length) * 100);
+  const displayName = currentUser?.name || t("localProfile");
+
+  return (
+    <View style={styles.screenGap}>
+      <LinearGradient colors={["#EAF8FF", "#FFFFFF"]} style={styles.heroPanel}>
+        <View style={styles.heroMetaRow}>
+          <MetricPill icon={<BookOpen color={palette.skyDark} size={17} />} text={t("virtualClass")} />
+          <MetricPill icon={<Brain color={palette.skyDark} size={17} />} text={t("grammarDrill")} />
+          <MetricPill icon={<Mic color={palette.skyDark} size={17} />} text={t("speakingPractice")} />
+        </View>
+        <View style={styles.dashboardHeroLayout}>
+          <View style={styles.dashboardHeroText}>
+            <Text style={styles.heroTitle}>
+              {language === "ru" ? `Привет, ${displayName}.` : `Hello, ${displayName}.`}
+            </Text>
+            <Text style={styles.heroCopy}>
+              {language === "ru"
+                ? "Это учебный кабинет: уроки, словарь, домашние задания, повторение ошибок и разговорная практика собраны в одном месте."
+                : "This is your study room: lessons, dictionary, homework, mistake review, and speaking practice are collected in one place."}
+            </Text>
+          </View>
+          <Image resizeMode="cover" source={scholarCat} style={styles.dashboardCatImage} />
+        </View>
+
+        <View style={styles.resultGrid}>
+          <View style={styles.resultCard}>
+            <Text style={styles.resultValue}>{coursePercent}%</Text>
+            <Text style={styles.resultLabel}>{t("courseProgress")}</Text>
+          </View>
+          <View style={styles.resultCard}>
+            <Text style={styles.resultValue}>{bestScore || "-"}</Text>
+            <Text style={styles.resultLabel}>{t("bestScore")}</Text>
+          </View>
+          <View style={styles.resultCard}>
+            <Text style={styles.resultValue}>{weakPhrasesCount}</Text>
+            <Text style={styles.resultLabel}>{t("weakPhrases")}</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.learningPanel}>
+        <View style={styles.panelHeaderRow}>
+          <View>
+            <Text style={styles.kicker}>{t("todayPlan")}</Text>
+            <Text style={styles.panelTitle}>{t("nextLesson")}: {nextTopic.title[language]}</Text>
+          </View>
+          <Pressable accessibilityRole="button" onPress={onStartLesson} style={styles.primaryButton}>
+            <MessageCircle color="#FFFFFF" size={19} />
+            <Text style={styles.primaryButtonText}>{t("start")}</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.panelText}>{nextTopic.description[language]}</Text>
+      </View>
+
+      <View style={styles.learningPanel}>
+        <Text style={styles.panelTitle}>{t("allSections")}</Text>
+        <View style={styles.sectionShortcutGrid}>
+          <SectionShortcut icon={<BookOpen color={palette.skyDark} size={22} />} title={t("courseMap")} text={language === "ru" ? "Пошаговая программа из 50 тем." : "A 50-topic step-by-step course."} onPress={onOpenCourse} t={t} />
+          <SectionShortcut icon={<Search color={palette.skyDark} size={22} />} title={t("topics")} text={language === "ru" ? "Каталог всех бытовых, научных и рабочих тем." : "Catalog of everyday, science, and work topics."} onPress={onOpenTopics} t={t} />
+          <SectionShortcut icon={<BookOpen color={palette.green} size={22} />} title={t("dictionary")} text={language === "ru" ? "Слова с переводом и озвучкой." : "Words with translation and audio."} onPress={onOpenDictionary} t={t} />
+          <SectionShortcut icon={<ListChecks color={palette.orange} size={22} />} title={t("homework")} text={language === "ru" ? "Задания после урока и повторение." : "After-lesson assignments and review."} onPress={onOpenHomework} t={t} />
+          <SectionShortcut icon={<Brain color={palette.purple} size={22} />} title={t("trainer")} text={language === "ru" ? "Грамматика и связки для B2+ речи." : "Grammar and connectors for B2+ speaking."} onPress={onOpenTrainer} t={t} />
+          <SectionShortcut icon={<Mic color={palette.pink} size={22} />} title={t("speakingRoom")} text={language === "ru" ? "Короткие голосовые разогревы." : "Short voice warm-ups."} onPress={onOpenSpeaking} t={t} />
+          <SectionShortcut icon={<Repeat2 color={palette.skyDark} size={22} />} title={t("review")} text={language === "ru" ? "Слабые фразы из ошибок." : "Weak phrases from mistakes."} onPress={onOpenReview} t={t} />
+          <SectionShortcut icon={<User color={palette.skyDark} size={22} />} title={t("profile")} text={language === "ru" ? "Прогресс, попытки и выход." : "Progress, attempts, and sign out."} onPress={onOpenProfile} t={t} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SectionShortcut({
+  icon,
+  onPress,
+  t,
+  text,
+  title
+}: {
+  icon: React.ReactNode;
+  onPress: () => void;
+  t: (key: CopyKey) => string;
+  text: string;
+  title: string;
+}) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.sectionShortcut}>
+      <View style={styles.sectionShortcutTop}>
+        {icon}
+        <ChevronRight color={palette.muted} size={18} />
+      </View>
+      <Text style={styles.sectionShortcutTitle}>{title}</Text>
+      <Text style={styles.sectionShortcutText}>{text}</Text>
+      <Text style={styles.sectionShortcutAction}>{t("openSection")}</Text>
+    </Pressable>
+  );
+}
+
+function CourseScreen({
+  isWide,
+  language,
+  onSelectTopic,
+  progress,
+  t
+}: {
+  isWide: boolean;
+  language: Language;
+  onSelectTopic: (topic: Topic) => void;
+  progress: Record<string, TopicProgress>;
+  t: (key: CopyKey) => string;
+}) {
+  const completedTopics = Object.values(progress).filter((item) => item.testAttempts > 0).length;
+
+  return (
+    <View style={styles.screenGap}>
+      <View style={styles.learningPanel}>
+        <View style={styles.panelHeaderRow}>
+          <View>
+            <Text style={styles.kicker}>{t("courseMap")}</Text>
+            <Text style={styles.panelTitle}>
+              {language === "ru" ? "Путь ученика B2+" : "B2+ learner path"}
+            </Text>
+          </View>
+          <View style={styles.progressBadge}>
+            <Text style={styles.progressBadgeText}>{completedTopics}/{topics.length}</Text>
+          </View>
+        </View>
+        <Text style={styles.panelText}>
+          {language === "ru"
+            ? "Каждая тема открывает 55 реплик, самостоятельный ответ, голосовую практику и тест из 15 заданий."
+            : "Each topic opens 55 dialogue turns, free answer practice, voice work, and a 15-task test."}
+        </Text>
+      </View>
+
+      <View style={[styles.topicGrid, isWide && styles.topicGridWide]}>
+        {topics.map((topic, index) => (
+          <CourseCard
+            index={index}
+            key={topic.id}
+            language={language}
+            progress={progress[topic.id]}
+            topic={topic}
+            onPress={() => onSelectTopic(topic)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CourseCard({
+  index,
+  language,
+  onPress,
+  progress,
+  topic
+}: {
+  index: number;
+  language: Language;
+  onPress: () => void;
+  progress?: TopicProgress;
+  topic: Topic;
+}) {
+  const completed = Boolean(progress?.testAttempts);
+  const label = completed
+    ? language === "ru"
+      ? `Сдано: ${progress?.bestScore}/10`
+      : `Passed: ${progress?.bestScore}/10`
+    : language === "ru"
+      ? "Новый урок"
+      : "New lesson";
+
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.topicCard}>
+      <View style={[styles.topicStripe, { backgroundColor: topic.color }]} />
+      <View style={styles.topicCardTop}>
+        <Text style={styles.topicNumber}>{String(index + 1).padStart(2, "0")}</Text>
+        <View style={[styles.topicCategory, completed && styles.topicCategoryDone]}>
+          <Text style={styles.topicCategoryText}>{label}</Text>
+        </View>
+      </View>
+      <Text style={styles.topicTitle}>{topic.title[language]}</Text>
+      <Text style={styles.topicText}>{topic.description[language]}</Text>
+      <View style={styles.topicFooter}>
+        <Text style={styles.topicFooterText}>{topic.category[language]}</Text>
+        <ChevronRight color={palette.skyDark} size={18} />
+      </View>
+    </Pressable>
+  );
+}
+
+function DictionaryScreen({
+  language,
+  onSelectTopic,
+  onSpeak,
+  t
+}: {
+  language: Language;
+  onSelectTopic: (topic: Topic) => void;
+  onSpeak: (text: string) => void;
+  t: (key: CopyKey) => string;
+}) {
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLowerCase();
+  const words = topics.flatMap((topic) =>
+    topic.vocabulary.map((word) => ({
+      id: `${topic.id}-${word}`,
+      topic,
+      translation: getVocabularyRu(topic, word),
+      word
+    }))
+  );
+  const filtered = words
+    .filter((item) => {
+      if (!normalized) {
+        return true;
+      }
+      return `${item.word} ${item.translation} ${item.topic.title.ru} ${item.topic.title.en}`.toLowerCase().includes(normalized);
+    })
+    .slice(0, 90);
+
+  return (
+    <View style={styles.screenGap}>
+      <View style={styles.learningPanel}>
+        <Text style={styles.kicker}>{t("personalDictionary")}</Text>
+        <Text style={styles.panelTitle}>
+          {language === "ru" ? "Слова по всем урокам" : "Words across all lessons"}
+        </Text>
+        <Text style={styles.panelText}>
+          {language === "ru"
+            ? "Здесь собрана лексика из тем: можно искать, слушать произношение и сразу открыть урок."
+            : "Vocabulary from the topics: search, listen to pronunciation, and open the lesson."}
+        </Text>
+      </View>
+
+      <View style={styles.searchBox}>
+        <Search color={palette.muted} size={19} />
+        <TextInput
+          onChangeText={setQuery}
+          placeholder={language === "ru" ? "Найти слово или перевод" : "Find a word or translation"}
+          placeholderTextColor={palette.muted}
+          style={styles.searchInput}
+          value={query}
+        />
+      </View>
+
+      <View style={styles.dictionaryGrid}>
+        {filtered.map((item) => (
+          <View key={item.id} style={styles.dictionaryCard}>
+            <View style={styles.dialogueBlockTop}>
+              <Text style={styles.dictionaryWord}>{item.word}</Text>
+              <Pressable accessibilityRole="button" onPress={() => onSpeak(item.word)} style={styles.listenButton}>
+                <Volume2 color={palette.skyDark} size={17} />
+              </Pressable>
+            </View>
+            <Text style={styles.translationText}>{item.translation}</Text>
+            <Text style={styles.voiceHint}>{item.topic.title[language]}</Text>
+            <Pressable accessibilityRole="button" onPress={() => onSelectTopic(item.topic)} style={styles.secondaryButton}>
+              <BookOpen color={palette.skyDark} size={18} />
+              <Text style={styles.secondaryButtonText}>{t("lesson")}</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function HomeworkScreen({
+  language,
+  nextTopic,
+  onOpenReview,
+  onStartLesson,
+  onStartTest,
+  t,
+  weakPhrasesCount
+}: {
+  language: Language;
+  nextTopic: Topic;
+  onOpenReview: () => void;
+  onStartLesson: (topic: Topic) => void;
+  onStartTest: () => void;
+  t: (key: CopyKey) => string;
+  weakPhrasesCount: number;
+}) {
+  return (
+    <View style={styles.screenGap}>
+      <View style={styles.learningPanel}>
+        <Text style={styles.kicker}>{t("homeworkCenter")}</Text>
+        <Text style={styles.panelTitle}>
+          {language === "ru" ? "Задания после уроков" : "After-lesson assignments"}
+        </Text>
+        <Text style={styles.panelText}>
+          {language === "ru"
+            ? "Домашка собирает то, что обычно нужно ученику между занятиями: продолжить урок, закрыть слабые фразы и пройти контроль."
+            : "Homework collects what a learner usually needs between lessons: continue, review weak phrases, and check knowledge."}
+        </Text>
+      </View>
+
+      <View style={styles.homeworkGrid}>
+        <HomeworkCard
+          icon={<MessageCircle color={palette.skyDark} size={22} />}
+          title={language === "ru" ? "Продолжить диалог" : "Continue dialogue"}
+          text={language === "ru" ? `Следующая тема: ${nextTopic.title.ru}. Ответь на вопросы письменно или голосом.` : `Next topic: ${nextTopic.title.en}. Answer by typing or voice.`}
+          button={t("start")}
+          onPress={() => onStartLesson(nextTopic)}
+        />
+        <HomeworkCard
+          icon={<Repeat2 color={palette.green} size={22} />}
+          title={language === "ru" ? "Повторить слабые фразы" : "Review weak phrases"}
+          text={language === "ru" ? `К повторению сейчас: ${weakPhrasesCount}. Разбери их до следующего теста.` : `Current review queue: ${weakPhrasesCount}. Study them before the next test.`}
+          button={t("review")}
+          onPress={onOpenReview}
+        />
+        <HomeworkCard
+          icon={<ListChecks color={palette.orange} size={22} />}
+          title={language === "ru" ? "Контрольная проверка" : "Knowledge check"}
+          text={language === "ru" ? "15 заданий с голосовым ответом и десятибалльной оценкой." : "15 tasks with voice answer support and a ten-point score."}
+          button={t("test")}
+          onPress={onStartTest}
+        />
+      </View>
+    </View>
+  );
+}
+
+function HomeworkCard({
+  button,
+  icon,
+  onPress,
+  text,
+  title
+}: {
+  button: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  text: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.homeworkCard}>
+      <View style={styles.sectionShortcutTop}>
+        {icon}
+        <ChevronRight color={palette.muted} size={18} />
+      </View>
+      <Text style={styles.sectionShortcutTitle}>{title}</Text>
+      <Text style={styles.sectionShortcutText}>{text}</Text>
+      <Pressable accessibilityRole="button" onPress={onPress} style={styles.primaryButton}>
+        <Text style={styles.primaryButtonText}>{button}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function GrammarTrainerScreen({
+  language,
+  onSpeak,
+  t
+}: {
+  language: Language;
+  onSpeak: (text: string) => void;
+  t: (key: CopyKey) => string;
+}) {
+  const [taskIndex, setTaskIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const task = grammarTasks[taskIndex];
+  const isAnswered = selectedIndex !== null;
+  const isCorrect = selectedIndex === task.correctIndex;
+
+  const goNext = () => {
+    setTaskIndex((value) => (value + 1) % grammarTasks.length);
+    setSelectedIndex(null);
+  };
+
+  return (
+    <View style={styles.testPanel}>
+      <View style={styles.lessonTop}>
+        <View>
+          <Text style={styles.kicker}>{t("grammarDrill")}</Text>
+          <Text style={styles.lessonTitle}>{taskIndex + 1}/{grammarTasks.length}</Text>
+        </View>
+        <Pressable accessibilityRole="button" onPress={() => onSpeak(task.prompt.en)} style={styles.secondaryButton}>
+          <Volume2 color={palette.skyDark} size={19} />
+          <Text style={styles.secondaryButtonText}>{t("listenTask")}</Text>
+        </Pressable>
+      </View>
+
+      <Text style={styles.testPrompt}>{task.prompt[language]}</Text>
+
+      <View style={styles.optionList}>
+        {task.options.map((option, index) => {
+          const selected = selectedIndex === index;
+          const correct = isAnswered && index === task.correctIndex;
+          const wrong = isAnswered && selected && index !== task.correctIndex;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              key={option}
+              onPress={() => setSelectedIndex(index)}
+              style={[
+                styles.optionButton,
+                selected && styles.optionButtonSelected,
+                correct && styles.trainerOptionCorrect,
+                wrong && styles.trainerOptionWrong
+              ]}
+            >
+              <View style={[styles.optionLetter, selected && styles.optionLetterSelected]}>
+                <Text style={[styles.optionLetterText, selected && styles.optionLetterTextSelected]}>
+                  {String.fromCharCode(65 + index)}
+                </Text>
+              </View>
+              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{option}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {isAnswered ? (
+        <View style={styles.feedbackPanel}>
+          <Text style={styles.feedbackTitle}>
+            {isCorrect
+              ? language === "ru"
+                ? "Верно"
+                : "Correct"
+              : language === "ru"
+                ? "Почти. Смотри объяснение"
+                : "Almost. Check the explanation"}
+          </Text>
+          <Text style={styles.feedbackText}>{task.explanation[language]}</Text>
+        </View>
+      ) : null}
+
+      <Pressable accessibilityRole="button" disabled={!isAnswered} onPress={goNext} style={[styles.primaryButton, !isAnswered && styles.disabledButton]}>
+        <CheckCircle2 color="#FFFFFF" size={20} />
+        <Text style={styles.primaryButtonText}>{t("nextTask")}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function SpeakingScreen({
+  language,
+  onSelectTopic,
+  onSpeak,
+  t,
+  topic
+}: {
+  language: Language;
+  onSelectTopic: (topic: Topic) => void;
+  onSpeak: (text: string) => void;
+  t: (key: CopyKey) => string;
+  topic: Topic;
+}) {
+  const prompts = buildDialogue(topic).slice(0, 8);
+
+  return (
+    <View style={styles.screenGap}>
+      <View style={styles.learningPanel}>
+        <Text style={styles.kicker}>{t("speakingRoom")}</Text>
+        <Text style={styles.panelTitle}>{topic.title[language]}</Text>
+        <Text style={styles.panelText}>
+          {language === "ru"
+            ? "Короткая разговорная разминка: слушай вопрос, отвечай вслух, затем открывай полный диалог для разбора."
+            : "A short speaking warm-up: listen to a question, answer aloud, then open the full dialogue for coaching."}
+        </Text>
+        <View style={styles.actionRow}>
+          {topics.slice(0, 5).map((item) => (
+            <Pressable accessibilityRole="button" key={item.id} onPress={() => onSelectTopic(item)} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>{item.title[language]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.reviewList}>
+        {prompts.map((prompt) => (
+          <View key={prompt.number} style={styles.phraseReviewCard}>
+              <View style={styles.dialogueBlockTop}>
+              <Text style={styles.phraseText}>{prompt.question}</Text>
+              <Pressable accessibilityRole="button" onPress={() => onSpeak(prompt.question)} style={styles.listenButton}>
+                <Volume2 color={palette.skyDark} size={17} />
+              </Pressable>
+            </View>
+            <Text style={styles.translationText}>{prompt.questionTranslation[language]}</Text>
+            <Text style={styles.teacherNoteText}>{prompt.teacherNote[language]}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Pressable accessibilityRole="button" onPress={() => onSelectTopic(topic)} style={styles.primaryButton}>
+        <MessageCircle color="#FFFFFF" size={19} />
+        <Text style={styles.primaryButtonText}>{t("start")}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -610,7 +1320,7 @@ function Header({
   return (
     <View style={styles.header}>
       <View style={styles.logoBlock}>
-        {screen !== "topics" && screen !== "auth" && (
+        {screen !== "dashboard" && screen !== "auth" && (
           <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
             <ArrowLeft color={palette.ink} size={20} />
           </Pressable>
@@ -629,17 +1339,29 @@ function Header({
           <Text style={styles.screenBadgeText}>
             {screen === "topics"
               ? t("topics")
-              : screen === "lesson"
-                ? t("lesson")
-                : screen === "test"
-                  ? t("test")
-                  : screen === "auth"
-                    ? t("auth")
-                    : screen === "profile"
-                      ? t("profile")
-                      : screen === "review"
-                        ? t("review")
-                        : t("results")}
+              : screen === "dashboard"
+                ? t("dashboard")
+                : screen === "course"
+                  ? t("courseMap")
+                  : screen === "dictionary"
+                    ? t("dictionary")
+                    : screen === "homework"
+                      ? t("homework")
+                      : screen === "trainer"
+                        ? t("trainer")
+                        : screen === "speaking"
+                          ? t("speakingRoom")
+                          : screen === "lesson"
+                            ? t("lesson")
+                            : screen === "test"
+                              ? t("test")
+                              : screen === "auth"
+                                ? t("auth")
+                                : screen === "profile"
+                                  ? t("profile")
+                                  : screen === "review"
+                                    ? t("review")
+                                    : t("results")}
           </Text>
         </View>
         <Pressable accessibilityRole="button" onPress={onToggleLanguage} style={styles.languageButton}>
@@ -788,10 +1510,34 @@ function LessonScreen({
   const recorderState = useAudioRecorderState(recorder, 250);
   const [voiceStatus, setVoiceStatus] = useState<"idle" | "recording" | "transcribing">("idle");
   const [voiceError, setVoiceError] = useState("");
+  const [openPanels, setOpenPanels] = useState<Record<LessonPanelKey, boolean>>({
+    answer: true,
+    examples: false,
+    phrases: false,
+    question: true,
+    tip: false
+  });
   const complete = exchangeIndex === dialogueLength - 1;
   const progress = ((exchangeIndex + 1) / dialogueLength) * 100;
   const isRecording = recorderState.isRecording || voiceStatus === "recording";
   const canSaveAnswer = answerDraft.trim().length > 0;
+
+  useEffect(() => {
+    setOpenPanels({
+      answer: true,
+      examples: false,
+      phrases: false,
+      question: true,
+      tip: false
+    });
+  }, [exchange.number]);
+
+  const togglePanel = (panel: LessonPanelKey) => {
+    setOpenPanels((current) => ({
+      ...current,
+      [panel]: !current[panel]
+    }));
+  };
 
   const buildDialogueAnswer = (
     text: string,
@@ -909,98 +1655,148 @@ function LessonScreen({
             </View>
           </View>
 
-          <DialogueBlock
-            label={t("question")}
-            text={exchange.question}
-            translationLabel={t("translation")}
-            translation={exchange.questionTranslation[language]}
-            teacherNote={exchange.teacherNote[language]}
-            tone="question"
-            onSpeak={() => onSpeak(exchange.question)}
-          />
+          <LessonQuickMenu openPanels={openPanels} t={t} onToggle={togglePanel} />
 
-          <PhraseCoachPanel language={language} phraseNotes={exchange.phraseNotes} t={t} />
-
-          <View style={styles.answerComposer}>
-            <View style={styles.answerComposerTop}>
-              <Text style={styles.dialogueLabel}>{t("myAnswer")}</Text>
-              <Pressable
-                accessibilityRole="button"
-                disabled={voiceStatus === "transcribing"}
-                onPress={handleVoicePress}
-                style={[
-                  styles.voiceButton,
-                  isRecording && styles.voiceButtonRecording,
-                  voiceStatus === "transcribing" && styles.disabledButton
-                ]}
-              >
-                <Mic color="#FFFFFF" size={18} />
-                <Text style={styles.voiceButtonText}>
-                  {voiceStatus === "transcribing"
-                    ? t("transcribing")
-                    : isRecording
-                      ? t("stopRecording")
-                      : t("recordDialogueAnswer")}
-                </Text>
-              </Pressable>
-            </View>
-
-            <TextInput
-              multiline
-              onChangeText={onDraftChange}
-              placeholder={t("typeYourAnswer")}
-              placeholderTextColor={palette.muted}
-              style={styles.answerInput}
-              textAlignVertical="top"
-              value={answerDraft}
-            />
-
-            <View style={styles.answerComposerTop}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!canSaveAnswer}
-                onPress={saveTypedAnswer}
-                style={[styles.primaryButton, !canSaveAnswer && styles.disabledButton]}
-              >
-                <CheckCircle2 color="#FFFFFF" size={19} />
-                <Text style={styles.primaryButtonText}>{t("saveAnswer")}</Text>
-              </Pressable>
-              {isRecording && <Text style={styles.voiceStatusText}>{t("recording")}</Text>}
-            </View>
-
-            {dialogueAnswer && (
-              <View style={styles.feedbackPanel}>
-                <Text style={styles.transcriptLabel}>
-                  {dialogueAnswer.source === "voice" ? t("spokenAnswer") : t("savedAnswer")}
-                </Text>
-                <Text style={styles.transcriptText}>{dialogueAnswer.text}</Text>
-                <View style={styles.feedbackDivider} />
-                <Text style={styles.feedbackTitle}>{t("feedback")}</Text>
-                <Text style={styles.feedbackText}>{dialogueAnswer.feedback.strength[language]}</Text>
-                <Text style={styles.feedbackText}>{dialogueAnswer.feedback.suggestion[language]}</Text>
-                <Text style={styles.voiceHint}>
-                  {t("wordCount")}: {dialogueAnswer.feedback.wordCount}
-                  {dialogueAnswer.feedback.vocabulary.length > 0
-                    ? ` · ${t("usedVocabulary")}: ${dialogueAnswer.feedback.vocabulary.join(", ")}`
-                    : ""}
-                </Text>
-                {dialogueAnswer.sttSource === "demo" && <Text style={styles.voiceHint}>{t("voiceDemo")}</Text>}
-              </View>
-            )}
-            {voiceError ? <Text style={styles.voiceErrorText}>{voiceError}</Text> : null}
-          </View>
-
-          <AnswerVariantsPanel
-            language={language}
-            onSpeak={onSpeak}
+          <CollapsibleSection
+            open={openPanels.question}
+            summary={exchange.questionTranslation[language]}
+            title={t("questionSection")}
             t={t}
-            variants={exchange.answerVariants}
-          />
+            onToggle={() => togglePanel("question")}
+          >
+            <DialogueBlock
+              label={t("question")}
+              text={exchange.question}
+              translationLabel={t("translation")}
+              translation={exchange.questionTranslation[language]}
+              teacherNote={exchange.teacherNote[language]}
+              tone="question"
+              onSpeak={() => onSpeak(exchange.question)}
+            />
+          </CollapsibleSection>
 
-          <View style={styles.tipBox}>
-            <Mic color={palette.skyDark} size={18} />
-            <Text style={styles.tipText}>{exchange.tip[language]}</Text>
-          </View>
+          <CollapsibleSection
+            open={openPanels.answer}
+            summary={dialogueAnswer ? dialogueAnswer.text : t("typeYourAnswer")}
+            title={t("answerSection")}
+            t={t}
+            onToggle={() => togglePanel("answer")}
+          >
+            <View style={styles.answerComposer}>
+              <View style={styles.answerComposerTop}>
+                <Text style={styles.dialogueLabel}>{t("myAnswer")}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={voiceStatus === "transcribing"}
+                  onPress={handleVoicePress}
+                  style={[
+                    styles.voiceButton,
+                    isRecording && styles.voiceButtonRecording,
+                    voiceStatus === "transcribing" && styles.disabledButton
+                  ]}
+                >
+                  <Mic color="#FFFFFF" size={18} />
+                  <Text style={styles.voiceButtonText}>
+                    {voiceStatus === "transcribing"
+                      ? t("transcribing")
+                      : isRecording
+                        ? t("stopRecording")
+                        : t("recordDialogueAnswer")}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <TextInput
+                multiline
+                onChangeText={onDraftChange}
+                placeholder={t("typeYourAnswer")}
+                placeholderTextColor={palette.muted}
+                style={styles.answerInput}
+                textAlignVertical="top"
+                value={answerDraft}
+              />
+
+              <View style={styles.answerComposerTop}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!canSaveAnswer}
+                  onPress={saveTypedAnswer}
+                  style={[styles.primaryButton, !canSaveAnswer && styles.disabledButton]}
+                >
+                  <CheckCircle2 color="#FFFFFF" size={19} />
+                  <Text style={styles.primaryButtonText}>{t("saveAnswer")}</Text>
+                </Pressable>
+                {isRecording && <Text style={styles.voiceStatusText}>{t("recording")}</Text>}
+              </View>
+
+              {dialogueAnswer && (
+                <View style={styles.feedbackPanel}>
+                  <Text style={styles.transcriptLabel}>
+                    {dialogueAnswer.source === "voice" ? t("spokenAnswer") : t("savedAnswer")}
+                  </Text>
+                  <Text style={styles.transcriptText}>{dialogueAnswer.text}</Text>
+                  <View style={styles.feedbackDivider} />
+                  <Text style={styles.feedbackTitle}>{t("feedback")}</Text>
+                  <Text style={styles.feedbackText}>{dialogueAnswer.feedback.strength[language]}</Text>
+                  <Text style={styles.feedbackText}>{dialogueAnswer.feedback.suggestion[language]}</Text>
+                  {dialogueAnswer.feedback.corrections.length > 0 && (
+                    <View style={styles.explanationBox}>
+                      <Text style={styles.translationLabel}>{t("spellingNotes")}</Text>
+                      {dialogueAnswer.feedback.corrections.map((correction) => (
+                        <Text key={correction.en} style={styles.feedbackText}>{correction[language]}</Text>
+                      ))}
+                    </View>
+                  )}
+                  <Text style={styles.voiceHint}>
+                    {t("wordCount")}: {dialogueAnswer.feedback.wordCount}
+                    {dialogueAnswer.feedback.vocabulary.length > 0
+                      ? ` · ${t("usedVocabulary")}: ${dialogueAnswer.feedback.vocabulary.join(", ")}`
+                      : ""}
+                  </Text>
+                  {dialogueAnswer.sttSource === "demo" && <Text style={styles.voiceHint}>{t("voiceDemo")}</Text>}
+                </View>
+              )}
+              {voiceError ? <Text style={styles.voiceErrorText}>{voiceError}</Text> : null}
+            </View>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            open={openPanels.phrases}
+            summary={exchange.phraseNotes.map((note) => note.phrase).join(" · ")}
+            title={t("phrasesSection")}
+            t={t}
+            onToggle={() => togglePanel("phrases")}
+          >
+            <PhraseCoachPanel language={language} phraseNotes={exchange.phraseNotes} t={t} />
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            open={openPanels.examples}
+            summary={t("threeCorrectAnswers")}
+            title={t("examplesSection")}
+            t={t}
+            onToggle={() => togglePanel("examples")}
+          >
+            <AnswerVariantsPanel
+              language={language}
+              onSpeak={onSpeak}
+              t={t}
+              variants={exchange.answerVariants}
+            />
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            open={openPanels.tip}
+            summary={exchange.tip[language]}
+            title={t("tipSection")}
+            t={t}
+            onToggle={() => togglePanel("tip")}
+          >
+            <View style={styles.tipBox}>
+              <Mic color={palette.skyDark} size={18} />
+              <Text style={styles.tipText}>{exchange.tip[language]}</Text>
+            </View>
+          </CollapsibleSection>
 
           <View style={styles.actionRow}>
             <Pressable accessibilityRole="button" onPress={onBack} style={styles.secondaryButton}>
@@ -1023,9 +1819,9 @@ function LessonScreen({
       </View>
 
       <View style={[styles.sideColumn, isWide && styles.sideColumnWide]}>
-        <SideFact icon={<MessageCircle color={palette.skyDark} size={20} />} title={t("exchangeCount")} text="55 question-answer exchanges per topic." />
-        <SideFact icon={<ListChecks color={palette.skyDark} size={20} />} title={t("testCount")} text="The test opens only after the dialogue is completed." />
-        <SideFact icon={<Trophy color={palette.skyDark} size={20} />} title={t("noStats")} text="No score is shown during the lesson or test." />
+        <SideFact icon={<MessageCircle color={palette.skyDark} size={20} />} title={t("exchangeCount")} text={t("sideDialogueText")} />
+        <SideFact icon={<ListChecks color={palette.skyDark} size={20} />} title={t("testCount")} text={t("sideTestText")} />
+        <SideFact icon={<Trophy color={palette.skyDark} size={20} />} title={t("noStats")} text={t("sideStatsText")} />
       </View>
     </View>
   );
@@ -1329,10 +2125,75 @@ function TopicCard({
       <Text style={styles.topicTitle}>{topic.title[language]}</Text>
       <Text style={styles.topicText}>{topic.description[language]}</Text>
       <View style={styles.topicFooter}>
-        <Text style={styles.topicFooterText}>55 Q/A · 15 test</Text>
+        <Text style={styles.topicFooterText}>{language === "ru" ? "55 реплик · 15 заданий" : "55 turns · 15 tasks"}</Text>
         <ChevronRight color={palette.skyDark} size={18} />
       </View>
     </Pressable>
+  );
+}
+
+function LessonQuickMenu({
+  openPanels,
+  onToggle,
+  t
+}: {
+  openPanels: Record<LessonPanelKey, boolean>;
+  onToggle: (panel: LessonPanelKey) => void;
+  t: (key: CopyKey) => string;
+}) {
+  return (
+    <View style={styles.lessonMenuPanel}>
+      <Text style={styles.lessonMenuTitle}>{t("lessonMenu")}</Text>
+      <View style={styles.lessonMenuGrid}>
+        {lessonPanelButtons.map((item) => {
+          const active = openPanels[item.key];
+          return (
+            <Pressable
+              accessibilityRole="button"
+              key={item.key}
+              onPress={() => onToggle(item.key)}
+              style={[styles.lessonMenuButton, active && styles.lessonMenuButtonActive]}
+            >
+              <Text style={[styles.lessonMenuButtonText, active && styles.lessonMenuButtonTextActive]}>
+                {t(item.label)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function CollapsibleSection({
+  children,
+  open,
+  onToggle,
+  summary,
+  t,
+  title
+}: {
+  children: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  summary?: string;
+  t: (key: CopyKey) => string;
+  title: string;
+}) {
+  return (
+    <View style={styles.collapsiblePanel}>
+      <Pressable accessibilityRole="button" onPress={onToggle} style={styles.collapsibleHeader}>
+        <View style={styles.collapsibleTitleBlock}>
+          <Text style={styles.collapsibleTitle}>{title}</Text>
+          {!open && summary ? <Text numberOfLines={2} style={styles.collapsibleSummary}>{summary}</Text> : null}
+        </View>
+        <View style={styles.collapseBadge}>
+          {open ? <ChevronUp color={palette.skyDark} size={18} /> : <ChevronDown color={palette.skyDark} size={18} />}
+          <Text style={styles.collapseBadgeText}>{open ? t("collapse") : t("expand")}</Text>
+        </View>
+      </Pressable>
+      {open ? <View style={styles.collapsibleBody}>{children}</View> : null}
+    </View>
   );
 }
 
@@ -1392,6 +2253,7 @@ function PhraseCoachPanel({
             <Text style={styles.translationText}>{note.translation[language]}</Text>
             <Text style={styles.teacherNoteText}>{note.explanation[language]}</Text>
             <Text style={styles.voiceHint}>{note.example}</Text>
+            <Text style={styles.teacherNoteText}>{note.exampleTranslation[language]}</Text>
           </View>
         ))}
       </View>
@@ -1410,29 +2272,49 @@ function AnswerVariantsPanel({
   t: (key: CopyKey) => string;
   variants: AnswerVariant[];
 }) {
+  const [openVariant, setOpenVariant] = useState(variants[0]?.label ?? "A");
+
+  useEffect(() => {
+    setOpenVariant(variants[0]?.label ?? "A");
+  }, [variants]);
+
   return (
     <View style={styles.teacherPanel}>
       <Text style={styles.teacherPanelTitle}>{t("threeCorrectAnswers")}</Text>
       <View style={styles.variantList}>
         {variants.map((variant) => (
           <View key={variant.label} style={styles.variantCard}>
-            <View style={styles.dialogueBlockTop}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setOpenVariant(openVariant === variant.label ? "" : variant.label)}
+              style={styles.variantHeader}
+            >
               <View style={styles.optionLetter}>
                 <Text style={styles.optionLetterText}>{variant.label}</Text>
               </View>
+              <Text numberOfLines={2} style={styles.variantHeaderText}>{variant.text}</Text>
+              {openVariant === variant.label ? (
+                <ChevronUp color={palette.skyDark} size={18} />
+              ) : (
+                <ChevronDown color={palette.skyDark} size={18} />
+              )}
+            </Pressable>
+            {openVariant === variant.label ? (
+              <View style={styles.variantBody}>
               <Pressable accessibilityRole="button" onPress={() => onSpeak(variant.text)} style={styles.listenButton}>
                 <Volume2 color={palette.skyDark} size={17} />
               </Pressable>
-            </View>
-            <Text style={styles.dialogueText}>{variant.text}</Text>
-            <View style={styles.translationBox}>
-              <Text style={styles.translationLabel}>{t("answerTranslation")}</Text>
-              <Text style={styles.translationText}>{variant.translation[language]}</Text>
-            </View>
-            <View style={styles.explanationBox}>
-              <Text style={styles.translationLabel}>{t("teacherExplanation")}</Text>
-              <Text style={styles.feedbackText}>{variant.explanation.ru}</Text>
-            </View>
+                <Text style={styles.dialogueText}>{variant.text}</Text>
+                <View style={styles.translationBox}>
+                  <Text style={styles.translationLabel}>{t("answerTranslation")}</Text>
+                  <Text style={styles.translationText}>{variant.translation[language]}</Text>
+                </View>
+                <View style={styles.explanationBox}>
+                  <Text style={styles.translationLabel}>{t("teacherExplanation")}</Text>
+                  <Text style={styles.feedbackText}>{variant.explanation[language]}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ))}
       </View>
@@ -1555,6 +2437,92 @@ const styles = StyleSheet.create({
   },
   screenGap: {
     gap: 16
+  },
+  dashboardHeroLayout: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 18,
+    justifyContent: "space-between"
+  },
+  dashboardHeroText: {
+    flex: 1,
+    minWidth: 260
+  },
+  dashboardCatImage: {
+    borderColor: "#F2D99B",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 150,
+    width: 150
+  },
+  learningPanel: {
+    backgroundColor: palette.surface,
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    padding: 16,
+    ...shadow
+  },
+  panelHeaderRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between"
+  },
+  panelTitle: {
+    color: palette.ink,
+    fontSize: 22,
+    fontWeight: "900",
+    lineHeight: 28
+  },
+  panelText: {
+    color: palette.muted,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 22
+  },
+  sectionShortcutGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12
+  },
+  sectionShortcut: {
+    backgroundColor: "#F7FBFE",
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    gap: 8,
+    minHeight: 154,
+    minWidth: 230,
+    padding: 14,
+    width: "23%"
+  },
+  sectionShortcutTop: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  sectionShortcutTitle: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: "900",
+    lineHeight: 21
+  },
+  sectionShortcutText: {
+    color: palette.muted,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19
+  },
+  sectionShortcutAction: {
+    color: palette.skyDark,
+    fontSize: 13,
+    fontWeight: "900"
   },
   heroPanel: {
     borderColor: "#D9F2FF",
@@ -1727,6 +2695,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5
   },
+  topicCategoryDone: {
+    backgroundColor: "#EAFBF5"
+  },
   topicCategoryText: {
     color: palette.skyDark,
     fontSize: 12,
@@ -1770,6 +2741,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 20
+  },
+  dictionaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12
+  },
+  dictionaryCard: {
+    backgroundColor: palette.surface,
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    gap: 8,
+    minWidth: 230,
+    padding: 14,
+    width: "31%"
+  },
+  dictionaryWord: {
+    color: palette.ink,
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 23
+  },
+  homeworkGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12
+  },
+  homeworkCard: {
+    backgroundColor: palette.surface,
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    gap: 10,
+    minWidth: 250,
+    padding: 16,
+    width: "31%",
+    ...shadow
+  },
+  trainerOptionCorrect: {
+    backgroundColor: "#EAFBF5",
+    borderColor: "#8BE0BE"
+  },
+  trainerOptionWrong: {
+    backgroundColor: "#FFF1F3",
+    borderColor: "#FDA4AF"
   },
   screenGrid: {
     gap: 18
@@ -1866,6 +2885,98 @@ const styles = StyleSheet.create({
   catLessonTextBlock: {
     flex: 1,
     minWidth: 0
+  },
+  lessonMenuPanel: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9F2FF",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12
+  },
+  lessonMenuTitle: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  lessonMenuGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  lessonMenuButton: {
+    backgroundColor: "#F7FBFE",
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    minHeight: 40,
+    minWidth: 120,
+    justifyContent: "center",
+    paddingHorizontal: 10
+  },
+  lessonMenuButtonActive: {
+    backgroundColor: palette.softBlue,
+    borderColor: palette.sky
+  },
+  lessonMenuButtonText: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "center"
+  },
+  lessonMenuButtonTextActive: {
+    color: palette.skyDark
+  },
+  collapsiblePanel: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#D9F2FF",
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden"
+  },
+  collapsibleHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    padding: 12
+  },
+  collapsibleTitleBlock: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0
+  },
+  collapsibleTitle: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: "900"
+  },
+  collapsibleSummary: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18
+  },
+  collapseBadge: {
+    alignItems: "center",
+    backgroundColor: palette.softBlue,
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 5,
+    minHeight: 34,
+    paddingHorizontal: 9
+  },
+  collapseBadgeText: {
+    color: palette.skyDark,
+    fontSize: 12,
+    fontWeight: "900"
+  },
+  collapsibleBody: {
+    borderTopColor: "#E6F3FA",
+    borderTopWidth: 1,
+    gap: 10,
+    padding: 12
   },
   dialogueBlock: {
     backgroundColor: "#F0F7FB",
@@ -2022,6 +3133,24 @@ const styles = StyleSheet.create({
     borderColor: "#BDEEDC",
     borderRadius: 8,
     borderWidth: 1,
+    overflow: "hidden"
+  },
+  variantHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 9,
+    padding: 11
+  },
+  variantHeaderText: {
+    color: palette.ink,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 20
+  },
+  variantBody: {
+    borderTopColor: "#BDEEDC",
+    borderTopWidth: 1,
     gap: 9,
     padding: 12
   },

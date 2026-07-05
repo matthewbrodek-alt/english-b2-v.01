@@ -30,6 +30,7 @@ export type PhraseNote = {
   translation: LocalizedText;
   explanation: LocalizedText;
   example: string;
+  exampleTranslation: LocalizedText;
 };
 
 export type AnswerVariant = {
@@ -39,7 +40,7 @@ export type AnswerVariant = {
   explanation: LocalizedText;
 };
 
-type PhraseTemplate = Omit<PhraseNote, "example">;
+type PhraseTemplate = Omit<PhraseNote, "example" | "exampleTranslation">;
 
 export type TestQuestion = {
   id: string;
@@ -401,10 +402,10 @@ export const topics: Topic[] = [
   },
   {
     id: "artificial-intelligence",
-    category: { ru: "AI", en: "AI" },
+    category: { ru: "ИИ", en: "AI" },
     title: { ru: "Искусственный интеллект", en: "Artificial intelligence" },
     description: {
-      ru: "AI-инструменты, автоматизация, этика и практическое применение.",
+      ru: "ИИ-инструменты, автоматизация, этика и практическое применение.",
       en: "AI tools, automation, ethics, and practical use cases."
     },
     setting: "an AI product strategy meeting",
@@ -844,7 +845,7 @@ const phraseBank: PhraseTemplate[] = [
     phrase: "I would say it depends on",
     translation: { ru: "Я бы сказал, что это зависит от", en: "I would say it depends on" },
     explanation: {
-      ru: "Хорошая B2+ структура, когда ответ не черно-белый и есть несколько условий.",
+      ru: "Хорошая структура уровня B2+, когда ответ не однозначный и зависит от нескольких условий.",
       en: "A good B2+ structure when the answer is not black-and-white."
     }
   },
@@ -858,7 +859,7 @@ const phraseBank: PhraseTemplate[] = [
   },
   {
     phrase: "A practical way to handle it is",
-    translation: { ru: "Практичный способ с этим справиться - это", en: "A practical way to handle it is" },
+    translation: { ru: "Практичный способ справиться с этим:", en: "A practical way to handle it is" },
     explanation: {
       ru: "Звучит полезно в разговоре, потому что сразу ведет к решению.",
       en: "Sounds useful in conversation because it moves directly toward a solution."
@@ -901,13 +902,322 @@ const teacherConnectors: PhraseTemplate[] = [
   }
 ];
 
+const topicContextRu: Record<string, { focus: string; role: string; setting: string }> = {
+  "daily-life": {
+    focus: "ясные объяснения и вежливые просьбы",
+    role: "сосед по квартире",
+    setting: "разговор с соседом по квартире"
+  },
+  science: {
+    focus: "структурная аргументация и осторожные выводы",
+    role: "ведущий научной встречи",
+    setting: "обсуждение в научном клубе"
+  },
+  sports: {
+    focus: "объяснение причин и описание прогресса",
+    role: "тренер",
+    setting: "разговор после тренировки"
+  },
+  cars: {
+    focus: "точное описание проблемы",
+    role: "сервисный консультант",
+    setting: "запись в автосервисе"
+  },
+  history: {
+    focus: "последовательность событий и нюансы",
+    role: "историк",
+    setting: "планирование аудиогида для музея"
+  },
+  medicine: {
+    focus: "ясные описания и аккуратная неопределенность",
+    role: "врач",
+    setting: "консультация в клинике"
+  },
+  travel: {
+    focus: "вежливое решение проблем",
+    role: "администратор отеля",
+    setting: "стойка регистрации в отеле"
+  },
+  ecology: {
+    focus: "сбалансированное мнение",
+    role: "организатор встречи",
+    setting: "общественная встреча об устойчивом развитии"
+  },
+  finance: {
+    focus: "объяснение компромиссов и рисков",
+    role: "финансовый консультант",
+    setting: "звонок по финансовому планированию"
+  },
+  technology: {
+    focus: "описание пользы и опасений",
+    role: "специалист по продукту",
+    setting: "разговор на демонстрации продукта"
+  },
+  culture: {
+    focus: "уважительные вопросы и интерес к собеседнику",
+    role: "гость",
+    setting: "международный ужин"
+  },
+  psychology: {
+    focus: "точное выражение чувств",
+    role: "коуч",
+    setting: "рефлексивная коуч-сессия"
+  },
+  space: {
+    focus: "простое объяснение сложных идей",
+    role: "астроном",
+    setting: "вопросы после публичной лекции"
+  },
+  law: {
+    focus: "формальное и спокойное уточнение",
+    role: "юридический помощник",
+    setting: "звонок для уточнения договора"
+  },
+  cooking: {
+    focus: "последовательные инструкции",
+    role: "шеф-повар",
+    setting: "кулинарный мастер-класс"
+  },
+  fashion: {
+    focus: "описание предпочтений",
+    role: "стилист",
+    setting: "консультация в магазине одежды"
+  },
+  music: {
+    focus: "описание вкуса с нюансами",
+    role: "посетитель фестиваля",
+    setting: "разговор на музыкальном фестивале"
+  },
+  cinema: {
+    focus: "краткий пересказ и рекомендация",
+    role: "ведущий киноклуба",
+    setting: "встреча киноклуба"
+  },
+  literature: {
+    focus: "интерпретация идей",
+    role: "читатель",
+    setting: "обсуждение в книжном клубе"
+  },
+  politics: {
+    focus: "дипломатичное несогласие",
+    role: "модератор",
+    setting: "модерируемая гражданская дискуссия"
+  },
+  "urban-planning": {
+    focus: "предложение улучшений",
+    role: "городской планировщик",
+    setting: "воркшоп по городскому планированию"
+  },
+  education: {
+    focus: "объяснение учебных целей",
+    role: "преподаватель",
+    setting: "интервью для образовательного подкаста"
+  },
+  parenting: {
+    focus: "деликатный и сбалансированный язык",
+    role: "преподаватель",
+    setting: "разговор родителя с учителем"
+  },
+  cybersecurity: {
+    focus: "ясное предупреждение и совет",
+    role: "тренер по безопасности",
+    setting: "тренинг по кибербезопасности"
+  },
+  "artificial-intelligence": {
+    focus: "объяснение пользы и рисков",
+    role: "ИИ-консультант",
+    setting: "стратегическая встреча по ИИ-продукту"
+  },
+  climate: {
+    focus: "объяснение на основе доказательств",
+    role: "аналитик",
+    setting: "брифинг по климатической устойчивости"
+  },
+  geography: {
+    focus: "точное описание мест",
+    role: "гид",
+    setting: "географическая викторина о путешествиях"
+  },
+  agriculture: {
+    focus: "объяснение процессов",
+    role: "фермер",
+    setting: "визит на ферму с инновациями"
+  },
+  energy: {
+    focus: "сравнение вариантов",
+    role: "инженер",
+    setting: "панельная дискуссия об энергетике"
+  },
+  architecture: {
+    focus: "визуальное описание",
+    role: "архитектор",
+    setting: "разбор проекта в архитектурной студии"
+  },
+  "visual-art": {
+    focus: "описание впечатлений",
+    role: "куратор",
+    setting: "посещение галереи"
+  },
+  photography: {
+    focus: "точная техническая лексика",
+    role: "фотограф",
+    setting: "фотографический воркшоп"
+  },
+  gaming: {
+    focus: "быстрые реакции и объяснения",
+    role: "напарник по команде",
+    setting: "голосовой чат игрового сообщества"
+  },
+  fitness: {
+    focus: "постановка целей",
+    role: "тренер",
+    setting: "консультация с персональным тренером"
+  },
+  nutrition: {
+    focus: "объяснение привычек",
+    role: "нутрициолог",
+    setting: "консультация по питанию"
+  },
+  emergency: {
+    focus: "четкая срочная коммуникация",
+    role: "оператор",
+    setting: "экстренный телефонный звонок"
+  },
+  volunteering: {
+    focus: "предложение помощи",
+    role: "координатор",
+    setting: "вводная встреча для волонтеров"
+  },
+  negotiation: {
+    focus: "твердая, но вежливая речь",
+    role: "партнер",
+    setting: "деловые переговоры"
+  },
+  startups: {
+    focus: "краткое убеждение",
+    role: "инвестор",
+    setting: "репетиция стартап-презентации"
+  },
+  marketing: {
+    focus: "презентация результатов",
+    role: "маркетолог",
+    setting: "встреча по итогам кампании"
+  },
+  design: {
+    focus: "объяснение дизайнерских решений",
+    role: "дизайнер",
+    setting: "разбор продуктового дизайна"
+  },
+  logistics: {
+    focus: "операционная ясность",
+    role: "менеджер по логистике",
+    setting: "звонок по координации доставки"
+  },
+  aviation: {
+    focus: "решение проблем в аэропорту",
+    role: "сотрудник авиакомпании",
+    setting: "стойка обслуживания в аэропорту"
+  },
+  maritime: {
+    focus: "уточнение практических деталей",
+    role: "портовый помощник",
+    setting: "информационная стойка паромной переправы"
+  },
+  engineering: {
+    focus: "технические объяснения",
+    role: "инженер",
+    setting: "разбор инженерного проекта"
+  },
+  philosophy: {
+    focus: "абстрактное рассуждение",
+    role: "ведущий семинара",
+    setting: "философский семинар"
+  },
+  ethics: {
+    focus: "взвешивание аргументов",
+    role: "член этического комитета",
+    setting: "обсуждение этического комитета"
+  },
+  "media-literacy": {
+    focus: "проверка информации",
+    role: "редактор",
+    setting: "обсуждение в редакции"
+  },
+  archaeology: {
+    focus: "осторожная интерпретация",
+    role: "археолог",
+    setting: "брифинг на месте раскопок"
+  },
+  "career-growth": {
+    focus: "уверенная профессиональная речь",
+    role: "руководитель",
+    setting: "встреча о карьерном развитии"
+  }
+};
+
+const vocabularyRuByTopic: Record<string, string[]> = {
+  "daily-life": ["домашние обязанности", "повседневные дела", "режим", "срок", "приоритет", "техобслуживание"],
+  science: ["доказательства", "гипотеза", "эксперимент", "прорыв", "рецензирование", "данные"],
+  sports: ["выносливость", "восстановление", "стратегия", "результативность", "регулярность", "командная работа"],
+  cars: ["техобслуживание", "расход топлива", "гарантия", "двигатель", "рейтинг безопасности", "поездка на работу"],
+  history: ["поворотный момент", "наследие", "источник", "империя", "реформа", "последствие"],
+  medicine: ["симптомы", "диагноз", "профилактика", "лечение", "усталость", "прием"],
+  travel: ["бронирование", "маршрут", "задержка", "местные обычаи", "возврат денег", "пересадка"],
+  ecology: ["устойчивое развитие", "выбросы", "переработка", "среда обитания", "экологический след", "правило или политика"],
+  finance: ["бюджет", "сбережения", "процентная ставка", "риск", "инвестиция", "денежный поток"],
+  technology: ["функция", "приватность", "автоматизация", "удобство использования", "интеграция", "обновление"],
+  culture: ["традиция", "обычай", "идентичность", "наследие", "уважение", "сообщество"],
+  psychology: ["мотивация", "личная граница", "стресс", "привычка", "уверенность", "эмпатия"],
+  space: ["орбита", "миссия", "телескоп", "гравитация", "планета", "запуск"],
+  law: ["договор", "пункт договора", "права", "обязательство", "правило или политика", "доказательство"],
+  cooking: ["ингредиент", "текстура", "вкус", "приправы", "рецепт", "порция"],
+  fashion: ["ткань", "посадка", "повод", "тренд", "экологичный выбор", "гардероб"],
+  music: ["жанр", "текст песни", "ритм", "живое выступление", "плейлист", "настроение"],
+  cinema: ["сюжет", "развитие персонажа", "сцена", "рецензия", "спойлер", "саундтрек"],
+  literature: ["тема", "рассказчик", "глава", "метафора", "конфликт", "концовка"],
+  politics: ["политический курс", "выборы", "государственная служба", "компромисс", "дебаты", "гражданин"],
+  "urban-planning": ["инфраструктура", "трафик", "жилье", "общественное пространство", "зонирование", "удобный для пешеходов"],
+  education: ["учебная программа", "обратная связь", "оценивание", "мотивация", "навык", "прогресс"],
+  parenting: ["режим", "поддержка", "дисциплина", "экранное время", "уверенность", "ответственность"],
+  cybersecurity: ["пароль", "фишинг", "утечка данных", "шифрование", "приватность", "аккаунт"],
+  "artificial-intelligence": ["модель", "запрос к модели", "автоматизация", "предвзятость", "рабочий процесс", "точность"],
+  climate: ["адаптация", "устойчивость к кризисам", "период жары", "выбросы", "риск", "смягчение последствий"],
+  geography: ["регион", "граница", "ландшафт", "ресурс", "население", "побережье"],
+  agriculture: ["сбор урожая", "почва", "сельхозкультура", "орошение", "урожайность", "устойчивый подход"],
+  energy: ["энергосеть", "возобновляемая энергия", "накопление энергии", "спрос", "предложение", "эффективность"],
+  architecture: ["планировка", "материал", "фасад", "свет", "пространство", "конструкция"],
+  "visual-art": ["композиция", "контраст", "выставка", "художник", "фактура", "интерпретация"],
+  photography: ["экспозиция", "объектив", "композиция", "портрет", "освещение", "кадр"],
+  gaming: ["игровой процесс", "стратегия", "квест", "баланс", "команда", "уровень"],
+  fitness: ["тренировка", "подвижность", "сила", "восстановление", "цель", "режим"],
+  nutrition: ["белок", "клетчатка", "порция", "сбалансированность", "тяга к еде", "прием пищи"],
+  emergency: ["срочность", "травма", "местоположение", "безопасность", "помощь", "спокойствие"],
+  volunteering: ["сообщество", "смена", "пожертвование", "ответственность", "поддержка", "влияние"],
+  negotiation: ["предложение", "компромисс", "условия", "срок", "приоритет", "соглашение"],
+  startups: ["презентация", "рынок", "клиент", "первые результаты", "выручка", "прототип"],
+  marketing: ["аудитория", "бренд", "кампания", "конверсия", "сообщение", "инсайт"],
+  design: ["планировка", "удобство использования", "обратная связь", "прототип", "пользовательский путь", "доступность"],
+  logistics: ["отправка", "склад", "маршрут", "задержка", "запасы", "отслеживание"],
+  aviation: ["посадка", "задержка", "выход на посадку", "багаж", "безопасность", "пересадка"],
+  maritime: ["гавань", "паром", "маршрут", "груз", "безопасность", "расписание"],
+  engineering: ["ограничение", "прототип", "нагрузка", "сбой", "материал", "тестирование"],
+  philosophy: ["смысл", "свобода", "аргумент", "убеждение", "этика", "истина"],
+  ethics: ["ответственность", "справедливость", "вред", "польза", "выбор", "принцип"],
+  "media-literacy": ["источник", "утверждение", "доказательства", "предвзятость", "заголовок", "проверка"],
+  archaeology: ["артефакт", "раскопки", "место раскопок", "доказательства", "древний период", "сохранение"],
+  "career-growth": ["повышение", "обратная связь", "пробел в навыках", "ответственность", "наставник", "рост"]
+};
+
 export function buildDialogue(topic: Topic): DialogueExchange[] {
   return dialogueAngles.map((angle, index) => {
     const word = topic.vocabulary[index % topic.vocabulary.length];
     const nextWord = topic.vocabulary[(index + 2) % topic.vocabulary.length];
     const phrase = phraseBank[index % phraseBank.length];
+    const context = getTopicContext(topic);
+    const wordRu = getVocabularyRu(topic, word);
+    const nextWordRu = getVocabularyRu(topic, nextWord);
     const question = `In ${topic.setting}, how would you ${angle.en} when discussing ${word}?`;
-    const answerVariants = buildAnswerVariants(topic, word, nextWord, phrase.phrase);
+    const answerVariants = buildAnswerVariants(topic, word, nextWord, phrase);
     const answer = answerVariants[0].text;
 
     return {
@@ -915,59 +1225,75 @@ export function buildDialogue(topic: Topic): DialogueExchange[] {
       question,
       answer,
       questionTranslation: {
-        ru: `В ситуации "${topic.setting}" как бы ты ${angle.ru}, обсуждая "${word}"?`,
+        ru: `Представь ситуацию: ${context.setting}. Как можно ${angle.ru}, если речь зашла о теме «${wordRu}» (${word})?`,
         en: question
       },
       teacherNote: {
-        ru: `Задача ответа: не перевести фразу дословно, а показать мысль. Скажи позицию, добавь причину, пример и короткий вопрос собеседнику.`,
+        ru: `Задача не в дословном переводе. Ответь как живой собеседник: назови позицию, объясни причину, приведи короткий пример и задай вопрос, который продолжает разговор.`,
         en: `Teacher note: show your idea, add a reason, give an example, and finish with a short follow-up question.`
       },
       phraseNotes: [
         {
           ...phrase,
-          example: `${phrase.phrase} ${word} can change the whole conversation.`
+          example: `${phrase.phrase} ${word} can change the whole conversation.`,
+          exampleTranslation: {
+            ru: `В этой теме «${phrase.translation.ru}» помогает мягко ввести мысль о «${wordRu}», а не просто бросить сухое мнение.`,
+            en: `${phrase.phrase} helps you introduce an idea about ${word}, not just state a flat opinion.`
+          }
         },
         {
           ...teacherConnectors[index % teacherConnectors.length],
-          example: `${word} is closely connected to ${nextWord}.`
+          example: `${word} is closely connected to ${nextWord}.`,
+          exampleTranslation: {
+            ru: `Тема «${wordRu}» связана с темой «${nextWordRu}»: такая связка показывает логику между идеями.`,
+            en: `${word} is connected to ${nextWord}: this shows the logic between ideas.`
+          }
         },
         {
           ...teacherConnectors[(index + 1) % teacherConnectors.length],
-          example: `For example, I would ask the ${topic.role} what matters most.`
+          example: `For example, I would ask the ${topic.role} what matters most.`,
+          exampleTranslation: {
+            ru: `Например, можно спросить собеседника, что сейчас важнее всего.`,
+            en: `For example, ask the ${topic.role} what matters most in the situation.`
+          }
         }
       ],
       answerVariants,
       tip: {
-        ru: `Фокус: ${topic.focus}. Используй связку "${phrase.phrase}" и добавь конкретный пример.`,
+        ru: `Фокус: ${context.focus}. Используй «${phrase.translation.ru}» как смысловой вход в ответ и добавь пример из ситуации.`,
         en: `Focus: ${topic.focus}. Use "${phrase.phrase}" and add one concrete example.`
       }
     };
   });
 }
 
-function buildAnswerVariants(topic: Topic, word: string, nextWord: string, starter: string): AnswerVariant[] {
+function buildAnswerVariants(topic: Topic, word: string, nextWord: string, starterPhrase: PhraseTemplate): AnswerVariant[] {
+  const starter = starterPhrase.phrase;
+  const wordRu = getVocabularyRu(topic, word);
+  const nextWordRu = getVocabularyRu(topic, nextWord);
+
   return [
     {
       label: "A",
-      text: `${starter} ${word} is closely connected to ${nextWord}. I would explain it with one clear example, then ask the ${topic.role} what matters most in this situation.`,
+      text: `${starter} ${word} is closely connected to ${nextWord}. I would give one real example, then ask the ${topic.role} what matters most before we decide.`,
       translation: {
-        ru: `${starter} - "${word}" тесно связано с "${nextWord}". Я бы объяснил это на одном понятном примере, а затем спросил бы собеседника, что в этой ситуации важнее всего.`,
-        en: `${starter} ${word} is closely connected to ${nextWord}.`
+        ru: `Интересно, что тема «${wordRu}» в этой ситуации связана с темой «${nextWordRu}». Я бы привел один реальный пример, а затем уточнил у собеседника, что важнее перед решением.`,
+        en: `${starter} ${word} is closely connected to ${nextWord}. I would give one real example, then ask the ${topic.role} what matters most before we decide.`
       },
       explanation: {
-        ru: "Это универсальный правильный ответ: есть вводная фраза, связь двух идей, пример и вопрос. Он звучит уверенно, но не агрессивно.",
+        ru: `Почему звучит естественно: фраза «${starterPhrase.translation.ru}» вводит наблюдение, а не грубое "я думаю". Ответ связывает две идеи, дает пример и оставляет место собеседнику.`,
         en: "This is a balanced answer with an opener, a link between ideas, an example, and a follow-up question."
       }
     },
     {
       label: "B",
-      text: `I would say it depends on the context. If ${word} affects ${nextWord}, I would give a specific example and check whether the ${topic.role} agrees with my reasoning.`,
+      text: `I would say it depends on the context. If ${word} affects ${nextWord}, I would explain the trade-off and check whether the ${topic.role} agrees with my reasoning.`,
       translation: {
-        ru: `Я бы сказал, что это зависит от контекста. Если "${word}" влияет на "${nextWord}", я бы привел конкретный пример и уточнил, согласен ли собеседник с моей логикой.`,
-        en: `I would say it depends on the context.`
+        ru: `Я бы сказал, что все зависит от контекста. Если тема «${wordRu}» влияет на тему «${nextWordRu}», я бы объяснил, в чем компромисс, и уточнил, согласен ли собеседник с моей логикой.`,
+        en: `I would say it depends on the context. If ${word} affects ${nextWord}, I would explain the trade-off and check whether the ${topic.role} agrees with my reasoning.`
       },
       explanation: {
-        ru: "Этот вариант звучит более аналитично: ты показываешь условие через if, объясняешь причину и мягко проверяешь понимание.",
+        ru: "Это аналитичный вариант: ты не делаешь категоричный вывод, а показываешь условие, возможный компромисс и мягко проверяешь понимание.",
         en: "This version is more analytical because it uses a condition, a reason, and a comprehension check."
       }
     },
@@ -975,11 +1301,11 @@ function buildAnswerVariants(topic: Topic, word: string, nextWord: string, start
       label: "C",
       text: `A practical way to answer is to start with the main point: ${word} matters because it changes how people think about ${nextWord}. For example, I would describe one real situation and ask what should happen next.`,
       translation: {
-        ru: `Практичный ответ - начать с главной мысли: "${word}" важно, потому что меняет то, как люди думают о "${nextWord}". Например, я бы описал одну реальную ситуацию и спросил, что должно произойти дальше.`,
-        en: `A practical way to answer is to start with the main point.`
+        ru: `Практичный способ ответить: сразу назвать главную мысль. Эта тема важна, потому что меняет отношение людей к теме «${nextWordRu}». Например, я бы описал реальную ситуацию и спросил, какой следующий шаг будет разумным.`,
+        en: `A practical way to answer is to start with the main point: ${word} matters because it changes how people think about ${nextWord}. For example, I would describe one real situation and ask what should happen next.`
       },
       explanation: {
-        ru: "Этот вариант сильнее для разговорной практики: он дает структуру main point -> because -> for example -> next question.",
+        ru: "Это самый разговорный вариант: он дает готовую структуру для устной речи: главная мысль, причина, пример и вопрос о следующем шаге.",
         en: "This version is strong for speaking practice because it follows main point -> because -> example -> next question."
       }
     }
@@ -988,6 +1314,7 @@ function buildAnswerVariants(topic: Topic, word: string, nextWord: string, start
 
 export function buildTest(topic: Topic): TestQuestion[] {
   const v = topic.vocabulary;
+  const term = (index: number) => formatRuTerm(topic, v[index]);
 
   return [
     {
@@ -1022,7 +1349,7 @@ export function buildTest(topic: Topic): TestQuestion[] {
       ],
       correctIndex: 2,
       explanation: {
-        ru: "B2-C1 речь часто смягчает несогласие частичным признанием позиции собеседника.",
+        ru: "На уровне B2-C1 несогласие часто смягчают частичным признанием позиции собеседника.",
         en: "B2-C1 speech often softens disagreement by acknowledging the other view first."
       }
     },
@@ -1053,14 +1380,14 @@ export function buildTest(topic: Topic): TestQuestion[] {
       ],
       correctIndex: 1,
       explanation: {
-        ru: "Could you clarify... звучит вежливо и профессионально.",
+        ru: "Фраза Could you clarify... звучит вежливо и профессионально: ты просишь уточнить смысл, а не просто повторить сказанное.",
         en: "Could you clarify... sounds polite and professional."
       }
     },
     {
       id: `${topic.id}-q5`,
       prompt: {
-        ru: `Как связать "${v[2]}" с практическим примером?`,
+        ru: `Как связать ${term(2)} с практическим примером?`,
         en: `How do you connect "${v[2]}" to a practical example?`
       },
       options: [
@@ -1096,7 +1423,7 @@ export function buildTest(topic: Topic): TestQuestion[] {
     {
       id: `${topic.id}-q7`,
       prompt: {
-        ru: `Как лучше описать риск, связанный с "${v[3]}"?`,
+        ru: `Как лучше описать риск, связанный с темой ${term(3)}?`,
         en: `How should you describe a risk connected with "${v[3]}"?`
       },
       options: [
@@ -1150,7 +1477,7 @@ export function buildTest(topic: Topic): TestQuestion[] {
     {
       id: `${topic.id}-q10`,
       prompt: {
-        ru: `Выбери лучший follow-up вопрос по теме "${topic.title.ru}".`,
+        ru: `Выбери лучший дополнительный вопрос по теме "${topic.title.ru}".`,
         en: `Choose the best follow-up question for "${topic.title.en}".`
       },
       options: [
@@ -1161,7 +1488,7 @@ export function buildTest(topic: Topic): TestQuestion[] {
       ],
       correctIndex: 0,
       explanation: {
-        ru: "Follow-up вопрос должен продолжать тему и продвигать диалог.",
+        ru: "Дополнительный вопрос должен продолжать тему и мягко продвигать диалог вперед.",
         en: "A follow-up question should continue the topic and move the dialogue forward."
       }
     },
@@ -1186,7 +1513,7 @@ export function buildTest(topic: Topic): TestQuestion[] {
     {
       id: `${topic.id}-q12`,
       prompt: {
-        ru: `Как лучше использовать слово "${v[5]}"?`,
+        ru: `Как лучше использовать ${term(5)}?`,
         en: `How should you use the word "${v[5]}"?`
       },
       options: [
@@ -1197,7 +1524,7 @@ export function buildTest(topic: Topic): TestQuestion[] {
       ],
       correctIndex: 0,
       explanation: {
-        ru: "Вариант грамматически устойчивый и подходит для B2+ речи.",
+        ru: "Вариант грамматически устойчивый и подходит для речи уровня B2+.",
         en: "The option is grammatically stable and suitable for B2+ speech."
       }
     },
@@ -1258,10 +1585,29 @@ export function buildTest(topic: Topic): TestQuestion[] {
   ];
 }
 
+function getTopicContext(topic: Topic) {
+  return topicContextRu[topic.id] ?? {
+    focus: topic.focus,
+    role: "собеседник",
+    setting: topic.setting
+  };
+}
+
+export function getVocabularyRu(topic: Topic, word: string) {
+  const index = topic.vocabulary.indexOf(word);
+  return vocabularyRuByTopic[topic.id]?.[index] ?? word;
+}
+
+function formatRuTerm(topic: Topic, word: string) {
+  const translated = getVocabularyRu(topic, word);
+  return translated === word ? `слово "${word}"` : `«${translated}» (${word})`;
+}
+
+
 export const copy = {
   ru: {
     appName: "English Cat Coach",
-    appCaption: "ученый кот для B2+ speaking",
+    appCaption: "ученый кот для разговорного B2+",
     topics: "Темы",
     lesson: "Диалог",
     test: "Тест",
@@ -1269,20 +1615,48 @@ export const copy = {
     auth: "Вход",
     profile: "Профиль",
     review: "Повторение",
+    dashboard: "Главная",
+    courseMap: "План курса",
+    dictionary: "Словарь",
+    homework: "Домашние задания",
+    trainer: "Тренажер",
+    speakingRoom: "Разговоры",
+    allSections: "Все разделы",
+    todayPlan: "План на сегодня",
+    virtualClass: "Учебный кабинет",
+    personalDictionary: "Личный словарь",
+    grammarDrill: "Грамматика",
+    speakingPractice: "Практика речи",
+    openSection: "Открыть",
+    courseProgress: "Прогресс курса",
+    nextLesson: "Следующий урок",
+    homeworkCenter: "Домашняя работа",
+    checkAnswer: "Проверить ответ",
     heroTitle: "Тренируй английский с ученым котом.",
     heroText:
-      "Выбирай тему, проходи 55 Q/A обменов, разбирай фразы с котом-учителем, затем решай тест из 15 заданий. Статистика появляется только после завершения теста.",
+      "Выбирай тему, проходи 55 реплик диалога, разбирай живые фразы с котом-учителем, затем решай тест из 15 заданий. Статистика появляется только после завершения теста.",
     start: "Начать урок",
     continue: "Продолжить",
-    nextExchange: "Следующий обмен",
+    nextExchange: "Следующая реплика",
     startTest: "Перейти к тесту",
     backToTopics: "К темам",
     question: "Вопрос",
     answer: "Пример ответа",
     listen: "Прослушать",
     topicCount: "50 разных тем",
-    exchangeCount: "55 Q/A обменов",
+    exchangeCount: "55 реплик диалога",
     testCount: "15 заданий",
+    lessonMenu: "Меню урока",
+    questionSection: "Вопрос и смысл",
+    answerSection: "Мой ответ",
+    phrasesSection: "Фразы и подтекст",
+    examplesSection: "3 сильных варианта",
+    tipSection: "Совет учителя",
+    expand: "Открыть",
+    collapse: "Свернуть",
+    sideDialogueText: "В каждой теме 55 разговорных шагов: вопрос, смысловой перевод, подсказки и практика ответа.",
+    sideTestText: "Тест открывается после завершения диалога и проверяет лексику, связки и естественность ответа.",
+    sideStatsText: "Баллы не отвлекают во время урока: статистика появляется только после завершения теста.",
     searchPlaceholder: "Поиск темы",
     noStats: "Статистика откроется после теста",
     chooseAnswer: "Выбери лучший ответ",
@@ -1300,8 +1674,8 @@ export const copy = {
     recording: "Идет запись...",
     transcribing: "Распознаю ответ...",
     spokenAnswer: "Распознанный ответ",
-    voiceSelected: "Выбран вариант по голосу",
-    voiceDemo: "Демо-распознавание. Для реального STT подключи backend endpoint.",
+    voiceSelected: "Вариант выбран по голосовому ответу",
+    voiceDemo: "Сейчас включено демо-распознавание. Для настоящей проверки речи подключи сервер распознавания.",
     microphoneDenied: "Нет доступа к микрофону",
     voiceError: "Не удалось распознать голос",
     myAnswer: "Мой ответ",
@@ -1310,6 +1684,7 @@ export const copy = {
     recordDialogueAnswer: "Ответить на вопрос голосом",
     savedAnswer: "Сохраненный ответ",
     feedback: "Разбор ответа",
+    spellingNotes: "Правописание и грамматика",
     wordCount: "Слов",
     usedVocabulary: "Лексика темы",
     phraseCoach: "Разбор фраз",
@@ -1323,8 +1698,8 @@ export const copy = {
     authTitle: "Создай учебный профиль",
     authText: "Так кот-учитель сможет сохранять прогресс, ошибки и слабые фразы на этом устройстве.",
     namePlaceholder: "Имя",
-    emailPlaceholder: "Email",
-    authEmailError: "Введите корректный email",
+    emailPlaceholder: "Электронная почта",
+    authEmailError: "Введите корректный адрес электронной почты",
     signIn: "Войти / создать профиль",
     signOut: "Выйти",
     saving: "Сохраняю...",
@@ -1350,20 +1725,48 @@ export const copy = {
     auth: "Sign in",
     profile: "Profile",
     review: "Review",
+    dashboard: "Home",
+    courseMap: "Course plan",
+    dictionary: "Dictionary",
+    homework: "Homework",
+    trainer: "Trainer",
+    speakingRoom: "Speaking",
+    allSections: "All sections",
+    todayPlan: "Today plan",
+    virtualClass: "Study room",
+    personalDictionary: "Personal dictionary",
+    grammarDrill: "Grammar",
+    speakingPractice: "Speaking practice",
+    openSection: "Open",
+    courseProgress: "Course progress",
+    nextLesson: "Next lesson",
+    homeworkCenter: "Homework center",
+    checkAnswer: "Check answer",
     heroTitle: "Train English with a scholarly cat.",
     heroText:
-      "Choose a topic, complete 55 Q/A exchanges, study phrases with the cat teacher, then solve a 15-task test. Statistics appear only after the test is finished.",
+      "Choose a topic, complete 55 dialogue turns, study natural phrases with the cat teacher, then solve a 15-task test. Statistics appear only after the test is finished.",
     start: "Start lesson",
     continue: "Continue",
-    nextExchange: "Next exchange",
+    nextExchange: "Next turn",
     startTest: "Go to test",
     backToTopics: "Topics",
     question: "Question",
     answer: "Sample answer",
     listen: "Listen",
     topicCount: "50 unique topics",
-    exchangeCount: "55 Q/A exchanges",
+    exchangeCount: "55 dialogue turns",
     testCount: "15 tasks",
+    lessonMenu: "Lesson menu",
+    questionSection: "Question and meaning",
+    answerSection: "My answer",
+    phrasesSection: "Phrases and nuance",
+    examplesSection: "3 strong answers",
+    tipSection: "Teacher tip",
+    expand: "Open",
+    collapse: "Collapse",
+    sideDialogueText: "Each topic has 55 speaking turns: question, meaning-based translation, coaching, and answer practice.",
+    sideTestText: "The test opens after the dialogue and checks vocabulary, connectors, and natural responses.",
+    sideStatsText: "Scores do not distract during practice: statistics appear only after finishing the test.",
     searchPlaceholder: "Search topic",
     noStats: "Stats unlock after the test",
     chooseAnswer: "Choose the best answer",
@@ -1391,6 +1794,7 @@ export const copy = {
     recordDialogueAnswer: "Answer by voice",
     savedAnswer: "Saved answer",
     feedback: "Answer feedback",
+    spellingNotes: "Spelling and grammar",
     wordCount: "Words",
     usedVocabulary: "Topic vocabulary",
     phraseCoach: "Phrase coaching",

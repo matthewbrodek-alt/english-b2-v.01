@@ -1,6 +1,7 @@
 import { DialogueExchange, Language, Topic } from "./content";
 
 export type DialogueAnswerFeedback = {
+  corrections: Record<Language, string>[];
   strength: Record<Language, string>;
   suggestion: Record<Language, string>;
   vocabulary: string[];
@@ -34,6 +35,7 @@ export function analyzeDialogueAnswer({ exchange, text, topic }: AnalyzeInput): 
   const asksFollowUp =
     text.includes("?") || ["what", "how", "why", "could you", "would you"].some((marker) => normalized.includes(marker));
   const promptOverlap = overlapScore(text, exchange.question);
+  const corrections = findCommonIssues(text);
 
   const strength =
     wordCount >= 18 && vocabulary.length > 0 && (hasReason || hasExample)
@@ -86,11 +88,62 @@ export function analyzeDialogueAnswer({ exchange, text, topic }: AnalyzeInput): 
   }
 
   return {
+    corrections,
     strength,
     suggestion,
     vocabulary,
     wordCount
   };
+}
+
+function findCommonIssues(text: string): Record<Language, string>[] {
+  const issues: Record<Language, string>[] = [];
+  const normalized = normalize(text);
+  const trimmed = text.trim();
+
+  if (/(^|\s)i(\s|[,.!?]|$)/.test(text)) {
+    issues.push({
+      ru: "Пиши местоимение I с заглавной буквы: I think, I would say, I agree.",
+      en: "Capitalize the pronoun I: I think, I would say, I agree."
+    });
+  }
+
+  if (normalized.includes("i am agree")) {
+    issues.push({
+      ru: "В английском говорят I agree, без am. Фраза I am agree звучит как ошибка.",
+      en: "Say I agree, not I am agree."
+    });
+  }
+
+  if (normalized.includes("people is")) {
+    issues.push({
+      ru: "People обычно требует are: people are worried, people are more likely to notice it.",
+      en: "People usually takes are: people are worried, people are more likely to notice it."
+    });
+  }
+
+  if (/\b(he|she|it)\s+don'?t\b/.test(normalized)) {
+    issues.push({
+      ru: "С he/she/it используй doesn't: he doesn't, she doesn't, it doesn't.",
+      en: "With he/she/it, use doesn't: he doesn't, she doesn't, it doesn't."
+    });
+  }
+
+  if (normalized.includes("more better")) {
+    issues.push({
+      ru: "Better уже означает «лучше», поэтому more better не нужно. Скажи better или much better.",
+      en: "Better already means more good, so avoid more better. Say better or much better."
+    });
+  }
+
+  if (trimmed.length > 12 && !/[.!?]$/.test(trimmed)) {
+    issues.push({
+      ru: "В конце ответа поставь точку или вопросительный знак: это помогает видеть границы мысли.",
+      en: "Add a final full stop or question mark so the thought feels complete."
+    });
+  }
+
+  return issues.slice(0, 3);
 }
 
 function overlapScore(source: string, target: string) {
