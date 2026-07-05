@@ -36,43 +36,44 @@ export function analyzeDialogueAnswer({ exchange, text, topic }: AnalyzeInput): 
     text.includes("?") || ["what", "how", "why", "could you", "would you"].some((marker) => normalized.includes(marker));
   const promptOverlap = overlapScore(text, exchange.question);
   const corrections = findCommonIssues(text);
+  const levelLabel = topic.level;
 
   const strength =
     wordCount >= 18 && vocabulary.length > 0 && (hasReason || hasExample)
       ? {
-          ru: "Хороший B2+ ответ: есть развернутая мысль, тематическая лексика и связка причины или примера.",
-          en: "Strong B2+ answer: it has a developed idea, topic vocabulary, and a reason or example."
+          ru: `Хороший ответ для уровня ${levelLabel}: мысль развёрнута, лексика взята из урока, есть причина или пример.`,
+          en: `Strong ${levelLabel} answer: it has a developed idea, topic vocabulary, and a reason or example.`
         }
       : wordCount >= 10 || promptOverlap > 0.08
         ? {
-            ru: "Ответ понятен и связан с вопросом. Его уже можно использовать как основу для устной практики.",
+            ru: "Ответ понятен и связан с вопросом. Это уже хорошая заготовка для устной практики.",
             en: "The answer is clear and connected to the question. It is a useful base for speaking practice."
           }
         : {
-            ru: "Ответ сохранен, но пока звучит слишком коротко для уровня B2+.",
-            en: "The answer is saved, but it is still too short for B2+ speaking practice."
+            ru: `Ответ сохранён, но пока коротковат для уровня ${levelLabel}. Добавь мысль, причину или пример.`,
+            en: `The answer is saved, but it is still too short for ${levelLabel} speaking practice.`
           };
 
   let suggestion: Record<Language, string>;
 
   if (wordCount < 12) {
     suggestion = {
-      ru: "Добавь 1-2 детали: позицию, причину и конкретный пример из ситуации.",
+      ru: "Добавь одну-две детали: свою позицию, причину и конкретный пример из ситуации.",
       en: "Add 1-2 details: your position, a reason, and a concrete example from the situation."
     };
   } else if (vocabulary.length === 0) {
     suggestion = {
-      ru: `Добавь лексику темы, например: ${topic.vocabulary.slice(0, 3).join(", ")}.`,
+      ru: `Добавь лексику урока, например: ${topic.vocabulary.slice(0, 3).join(", ")}. Так ответ станет ближе к теме.`,
       en: `Add topic vocabulary, for example: ${topic.vocabulary.slice(0, 3).join(", ")}.`
     };
   } else if (!hasReason) {
     suggestion = {
-      ru: "Усиль ответ причинной связкой: because, since, therefore или as a result.",
+      ru: "Добавь причинную связку: because, since, therefore или as a result. Она покажет, почему ты так думаешь.",
       en: "Strengthen the answer with a reason connector: because, since, therefore, or as a result."
     };
   } else if (!hasExample) {
     suggestion = {
-      ru: "Добавь пример через for example или in my experience, чтобы речь звучала естественнее.",
+      ru: "Добавь пример через for example или in my experience: так речь звучит живее и убедительнее.",
       en: "Add an example with for example or in my experience to make the speech sound more natural."
     };
   } else if (!asksFollowUp) {
@@ -82,7 +83,7 @@ export function analyzeDialogueAnswer({ exchange, text, topic }: AnalyzeInput): 
     };
   } else {
     suggestion = {
-      ru: "Теперь произнеси ответ еще раз чуть медленнее и сравни с примером ниже.",
+      ru: "Теперь произнеси ответ ещё раз, чуть медленнее, и сравни его с образцом ниже.",
       en: "Now say the answer again a bit more slowly and compare it with the sample below."
     };
   }
@@ -110,7 +111,7 @@ function findCommonIssues(text: string): Record<Language, string>[] {
 
   if (normalized.includes("i am agree")) {
     issues.push({
-      ru: "В английском говорят I agree, без am. Фраза I am agree звучит как ошибка.",
+      ru: "В английском говорят I agree, без am. Фраза I am agree воспринимается как ошибка.",
       en: "Say I agree, not I am agree."
     });
   }
@@ -138,7 +139,7 @@ function findCommonIssues(text: string): Record<Language, string>[] {
 
   if (trimmed.length > 12 && !/[.!?]$/.test(trimmed)) {
     issues.push({
-      ru: "В конце ответа поставь точку или вопросительный знак: это помогает видеть границы мысли.",
+      ru: "В конце ответа поставь точку или вопросительный знак: так мысль выглядит завершённой.",
       en: "Add a final full stop or question mark so the thought feels complete."
     });
   }

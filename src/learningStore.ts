@@ -255,7 +255,7 @@ function buildWeakPhrases(input: TestCompletionInput, mistakes: MistakeRecord[])
   return input.topic.vocabulary.slice(0, Math.min(mistakes.length + 2, input.topic.vocabulary.length)).map((phrase) => ({
     mastered: false,
     phrase,
-    reason: `Повтори "${phrase}": эта лексика связана с ошибками в теме "${input.topic.title.ru}".`,
+    reason: `Вернись к фразе "${phrase}": она связана с ошибками в уроке "${input.topic.title.ru}" и поможет сказать мысль точнее.`,
     timesMissed: 1,
     topicId: input.topic.id,
     topicTitle: input.topic.title.ru

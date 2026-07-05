@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "English Cat Coach",
-    "slug": "fluent-b2-coach",
+    "slug": "english-a2-c1-cat-coach",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -13,20 +13,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.prototype.fluentb2coach"
+      "bundleIdentifier": "com.onesh.englishcatcoach"
     },
     "android": {
-      "package": "com.prototype.fluentb2coach",
+      "package": "com.onesh.englishcatcoach",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EAF8FF"
-      },
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-      ]
+      }
     },
     "web": {
       "bundler": "metro",
@@ -37,16 +31,10 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Fluent Coach uses the microphone for voice answers and speaking practice.",
+          "microphonePermission": "English Cat Coach uses the microphone for voice answers and speaking practice.",
           "recordAudioAndroid": true
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "1b165541-c962-41cb-bc35-bfc3c3f4d6c8"
-      }
-    },
-    "owner": "matthewbrodek"
+    ]
   }
 }

@@ -112,63 +112,63 @@ const lessonPanelButtons: Array<{ key: LessonPanelKey; label: CopyKey }> = [
 
 const grammarTasks: GrammarTask[] = [
   {
-    correctIndex: 1,
+    correctIndex: 0,
     explanation: {
-      en: "Use the present perfect when the result is connected to now: 'has improved'.",
-      ru: "Нужен present perfect, потому что результат важен сейчас: 'has improved'."
+      en: "A2 focuses on clear simple sentences. 'I usually study in the evening' is correct present simple.",
+      ru: "A2 тренирует простые ясные предложения. 'I usually study in the evening' - правильный present simple."
     },
-    options: ["improved", "has improved", "had improved"],
+    options: ["I usually study in the evening.", "I usually studying in the evening.", "I am usually study in the evening."],
     prompt: {
-      en: "My pronunciation ___ a lot since I started shadowing native speakers.",
-      ru: "Выбери естественный вариант: My pronunciation ___ a lot since I started shadowing native speakers."
-    }
-  },
-  {
-    correctIndex: 2,
-    explanation: {
-      en: "'Would rather' is followed by the base verb: 'would rather discuss'.",
-      ru: "После 'would rather' ставим глагол без to: 'would rather discuss'."
-    },
-    options: ["would rather to discuss", "would rather discussing", "would rather discuss"],
-    prompt: {
-      en: "I ___ the details after we see the first results.",
-      ru: "Как сказать: 'Я бы предпочёл обсудить детали после первых результатов'?"
+      en: "A2 foundation: choose the clear present simple sentence.",
+      ru: "A2 база: выбери ясное предложение в present simple."
     }
   },
   {
     correctIndex: 0,
     explanation: {
-      en: "'Even though' introduces contrast and sounds natural in a B2+ argument.",
-      ru: "'Even though' вводит уступку: мысль становится живее и точнее, чем с прямым 'but'."
+      en: "B1 adds experience and clarification. Present perfect is natural with 'already'.",
+      ru: "B1 добавляет опыт и уточнение. Present perfect естественно работает с 'already'."
     },
-    options: ["Even though", "Because", "In order to"],
+    options: ["I have already checked the plan.", "I already check the plan yesterday.", "I have check the plan."],
     prompt: {
-      en: "___ the plan is risky, it could save us time.",
-      ru: "Выбери связку для смысла: 'Хотя план рискованный, он может сэкономить время'."
+      en: "B1 interaction: choose the sentence that reports completed experience.",
+      ru: "B1 общение: выбери предложение о завершенном опыте."
     }
   },
   {
-    correctIndex: 1,
+    correctIndex: 0,
     explanation: {
-      en: "For a polite suggestion, 'you might want to' is softer than 'you must'.",
-      ru: "'You might want to' звучит как мягкий совет, а не приказ."
+      en: "B2 needs balanced argument. The second conditional gives a careful hypothetical answer.",
+      ru: "B2 требует взвешенной аргументации. Second conditional помогает говорить о гипотетической ситуации."
     },
-    options: ["you must", "you might want to", "you are forced to"],
+    options: ["If I had more time, I would explain the reason.", "If I have more time, I would explained the reason.", "If I had more time, I will explained the reason."],
     prompt: {
-      en: "If your answer sounds too direct, ___ add a short reason.",
-      ru: "Как мягко посоветовать добавить короткое объяснение?"
+      en: "B2 argument: choose the correct hypothetical sentence.",
+      ru: "B2 аргументация: выбери правильное гипотетическое предложение."
     }
   },
   {
-    correctIndex: 2,
+    correctIndex: 0,
     explanation: {
-      en: "'The more..., the more...' is the natural comparative structure.",
-      ru: "Конструкция 'the more..., the more...' передаёт зависимость: чем больше одно, тем больше другое."
+      en: "B2+ uses emphasis and nuance. 'What matters most is...' highlights the priority naturally.",
+      ru: "B2+ тренирует акцент и нюанс. 'What matters most is...' естественно выделяет главное."
     },
-    options: ["More I practice, more confident I feel", "The more I practice, more confident I feel", "The more I practice, the more confident I feel"],
+    options: ["What matters most is the next step.", "What matters most it is the next step.", "Most matter is next step."],
     prompt: {
-      en: "Choose the natural sentence.",
-      ru: "Выбери естественное предложение."
+      en: "B2+ fluency: choose the natural cleft sentence.",
+      ru: "B2+ беглость: выбери естественную фразу с выделением главного."
+    }
+  },
+  {
+    correctIndex: 0,
+    explanation: {
+      en: "C1 needs professional precision. 'There is a strong case for...' introduces a reasoned position.",
+      ru: "C1 требует профессиональной точности. 'There is a strong case for...' вводит аргументированную позицию."
+    },
+    options: ["There is a strong case for changing the plan.", "There is strong case to changing the plan.", "Strong case is change plan."],
+    prompt: {
+      en: "C1 precision: choose the professional sentence.",
+      ru: "C1 точность: выбери профессионально звучащее предложение."
     }
   }
 ];
@@ -653,11 +653,11 @@ function DashboardScreen({
       <View style={styles.learningPanel}>
         <Text style={styles.panelTitle}>{t("allSections")}</Text>
         <View style={styles.sectionShortcutGrid}>
-          <SectionShortcut icon={<BookOpen color={palette.skyDark} size={22} />} title={t("courseMap")} text={language === "ru" ? "Пошаговая программа из 50 тем." : "A 50-topic step-by-step course."} onPress={onOpenCourse} t={t} />
+          <SectionShortcut icon={<BookOpen color={palette.skyDark} size={22} />} title={t("courseMap")} text={language === "ru" ? "Пошаговая программа A2-C1 из 60 уроков." : "A 60-lesson A2-C1 step-by-step course."} onPress={onOpenCourse} t={t} />
           <SectionShortcut icon={<Search color={palette.skyDark} size={22} />} title={t("topics")} text={language === "ru" ? "Каталог всех бытовых, научных и рабочих тем." : "Catalog of everyday, science, and work topics."} onPress={onOpenTopics} t={t} />
           <SectionShortcut icon={<BookOpen color={palette.green} size={22} />} title={t("dictionary")} text={language === "ru" ? "Слова с переводом и озвучкой." : "Words with translation and audio."} onPress={onOpenDictionary} t={t} />
           <SectionShortcut icon={<ListChecks color={palette.orange} size={22} />} title={t("homework")} text={language === "ru" ? "Задания после урока и повторение." : "After-lesson assignments and review."} onPress={onOpenHomework} t={t} />
-          <SectionShortcut icon={<Brain color={palette.purple} size={22} />} title={t("trainer")} text={language === "ru" ? "Грамматика и связки для B2+ речи." : "Grammar and connectors for B2+ speaking."} onPress={onOpenTrainer} t={t} />
+          <SectionShortcut icon={<Brain color={palette.purple} size={22} />} title={t("trainer")} text={language === "ru" ? "Грамматика, связки и точность по уровням A2-C1." : "Grammar, connectors, and accuracy for A2-C1."} onPress={onOpenTrainer} t={t} />
           <SectionShortcut icon={<Mic color={palette.pink} size={22} />} title={t("speakingRoom")} text={language === "ru" ? "Короткие голосовые разогревы." : "Short voice warm-ups."} onPress={onOpenSpeaking} t={t} />
           <SectionShortcut icon={<Repeat2 color={palette.skyDark} size={22} />} title={t("review")} text={language === "ru" ? "Слабые фразы из ошибок." : "Weak phrases from mistakes."} onPress={onOpenReview} t={t} />
           <SectionShortcut icon={<User color={palette.skyDark} size={22} />} title={t("profile")} text={language === "ru" ? "Прогресс, попытки и выход." : "Progress, attempts, and sign out."} onPress={onOpenProfile} t={t} />
@@ -715,7 +715,7 @@ function CourseScreen({
           <View>
             <Text style={styles.kicker}>{t("courseMap")}</Text>
             <Text style={styles.panelTitle}>
-              {language === "ru" ? "Путь ученика B2+" : "B2+ learner path"}
+              {language === "ru" ? "Путь ученика A2-C1" : "A2-C1 learner path"}
             </Text>
           </View>
           <View style={styles.progressBadge}>
@@ -761,7 +761,7 @@ function CourseCard({
   const completed = Boolean(progress?.testAttempts);
   const label = completed
     ? language === "ru"
-      ? `Сдано: ${progress?.bestScore}/10`
+      ? `Лучший балл: ${progress?.bestScore}/10`
       : `Passed: ${progress?.bestScore}/10`
     : language === "ru"
       ? "Новый урок"
@@ -889,7 +889,7 @@ function HomeworkScreen({
         </Text>
         <Text style={styles.panelText}>
           {language === "ru"
-            ? "Домашка собирает то, что обычно нужно ученику между занятиями: продолжить урок, закрыть слабые фразы и пройти контроль."
+            ? "Практика после урока помогает продолжить диалог, вернуться к слабым фразам и пройти проверку без лишней спешки."
             : "Homework collects what a learner usually needs between lessons: continue, review weak phrases, and check knowledge."}
         </Text>
       </View>
