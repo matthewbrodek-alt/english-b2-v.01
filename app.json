@@ -2,6 +2,7 @@
   "expo": {
     "name": "English Cat Coach",
     "slug": "english-a2-c1-cat-coach",
+    "owner": "matthewbrodek",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -20,13 +21,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EAF8FF"
-      },
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-      ]
+      }
     },
     "web": {
       "bundler": "metro",
@@ -42,10 +37,9 @@
         }
       ]
     ],
-    "owner": "matthewbrodek",
     "extra": {
       "eas": {
-        "projectId": "905e0f76-65c9-45d0-968d-cbe6cee3153d"
+        "projectId": "1b165541-c962-41cb-bc35-bfc3cf46dc8"
       }
     }
   }
