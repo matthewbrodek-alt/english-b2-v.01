@@ -2,7 +2,7 @@
   "expo": {
     "name": "English Cat Coach",
     "slug": "english-a2-c1-cat-coach",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.onesh.englishcatcoach",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EAF8FF"

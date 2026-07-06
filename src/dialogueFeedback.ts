@@ -25,76 +25,156 @@ type AnalyzeInput = {
 export function analyzeDialogueAnswer({ exchange, text, topic }: AnalyzeInput): DialogueAnswerFeedback {
   const normalized = normalize(text);
   const wordCount = tokenize(text).length;
-  const vocabulary = topic.vocabulary.filter((item) => normalized.includes(normalize(item)));
-  const hasReason = ["because", "since", "as a result", "therefore", "so"].some((marker) =>
-    normalized.includes(marker)
-  );
-  const hasExample = ["for example", "for instance", "such as", "in my experience"].some((marker) =>
-    normalized.includes(marker)
-  );
+  const usedPhrases = findUsedPhrases(exchange, normalized);
+  const usedVocabulary = topic.vocabulary.filter((item) => normalized.includes(normalize(item)));
   const asksFollowUp =
-    text.includes("?") || ["what", "how", "why", "could you", "would you"].some((marker) => normalized.includes(marker));
-  const promptOverlap = overlapScore(text, exchange.question);
+    text.includes("?") || ["what about", "how about", "do you mean", "could you", "would you"].some((marker) => normalized.includes(marker));
+  const hasReason = ["because", "since", "so", "that's why", "the reason is"].some((marker) => normalized.includes(marker));
+  const hasReaction = ["i see", "fair", "honestly", "that makes sense", "i get it", "i hear you"].some((marker) => normalized.includes(marker));
   const corrections = findCommonIssues(text);
-  const levelLabel = topic.level;
 
-  const strength =
-    wordCount >= 18 && vocabulary.length > 0 && (hasReason || hasExample)
-      ? {
-          ru: `Хороший ответ для уровня ${levelLabel}: мысль развёрнута, лексика взята из урока, есть причина или пример.`,
-          en: `Strong ${levelLabel} answer: it has a developed idea, topic vocabulary, and a reason or example.`
-        }
-      : wordCount >= 10 || promptOverlap > 0.08
-        ? {
-            ru: "Ответ понятен и связан с вопросом. Это уже хорошая заготовка для устной практики.",
-            en: "The answer is clear and connected to the question. It is a useful base for speaking practice."
-          }
-        : {
-            ru: `Ответ сохранён, но пока коротковат для уровня ${levelLabel}. Добавь мысль, причину или пример.`,
-            en: `The answer is saved, but it is still too short for ${levelLabel} speaking practice.`
-          };
-
-  let suggestion: Record<Language, string>;
-
-  if (wordCount < 12) {
-    suggestion = {
-      ru: "Добавь одну-две детали: свою позицию, причину и конкретный пример из ситуации.",
-      en: "Add 1-2 details: your position, a reason, and a concrete example from the situation."
-    };
-  } else if (vocabulary.length === 0) {
-    suggestion = {
-      ru: `Добавь лексику урока, например: ${topic.vocabulary.slice(0, 3).join(", ")}. Так ответ станет ближе к теме.`,
-      en: `Add topic vocabulary, for example: ${topic.vocabulary.slice(0, 3).join(", ")}.`
-    };
-  } else if (!hasReason) {
-    suggestion = {
-      ru: "Добавь причинную связку: because, since, therefore или as a result. Она покажет, почему ты так думаешь.",
-      en: "Strengthen the answer with a reason connector: because, since, therefore, or as a result."
-    };
-  } else if (!hasExample) {
-    suggestion = {
-      ru: "Добавь пример через for example или in my experience: так речь звучит живее и убедительнее.",
-      en: "Add an example with for example or in my experience to make the speech sound more natural."
-    };
-  } else if (!asksFollowUp) {
-    suggestion = {
-      ru: "В конце можно задать уточняющий вопрос собеседнику, чтобы поддержать диалог.",
-      en: "You can end with a follow-up question to keep the dialogue moving."
-    };
-  } else {
-    suggestion = {
-      ru: "Теперь произнеси ответ ещё раз, чуть медленнее, и сравни его с образцом ниже.",
-      en: "Now say the answer again a bit more slowly and compare it with the sample below."
-    };
-  }
+  const strength = buildStrength({
+    asksFollowUp,
+    hasReaction,
+    hasReason,
+    usedPhrases,
+    usedVocabulary,
+    wordCount
+  });
+  const suggestion = buildSuggestion({
+    asksFollowUp,
+    hasReason,
+    topic,
+    usedPhrases,
+    wordCount
+  });
 
   return {
     corrections,
     strength,
     suggestion,
-    vocabulary,
+    vocabulary: usedPhrases.length > 0 ? usedPhrases : usedVocabulary,
     wordCount
   };
+}
+
+function buildStrength({
+  asksFollowUp,
+  hasReaction,
+  hasReason,
+  usedPhrases,
+  usedVocabulary,
+  wordCount
+}: {
+  asksFollowUp: boolean;
+  hasReaction: boolean;
+  hasReason: boolean;
+  usedPhrases: string[];
+  usedVocabulary: string[];
+  wordCount: number;
+}): Record<Language, string> {
+  if (wordCount >= 25 && usedPhrases.length > 0 && asksFollowUp) {
+    return {
+      ru: "Хорошо: ты не просто ответил, а поддержал разговор. Есть целевая фраза, нормальная длина и вопрос назад.",
+      en: "Good: you didn't just answer, you kept the conversation alive. Target phrase, solid length, and a question back."
+    };
+  }
+
+  if (wordCount >= 16 && (hasReason || hasReaction)) {
+    return {
+      ru: "Уже звучит по-человечески: есть мысль и реакция, а не набор отдельных слов.",
+      en: "This already sounds human: there is a point and a reaction, not just loose words."
+    };
+  }
+
+  if (wordCount >= 8 || usedVocabulary.length > 0) {
+    return {
+      ru: "Нормальный старт. Мысль понятна, теперь можно добавить деталь и сделать реплику живее.",
+      en: "Solid start. The idea is clear; now add one detail and make it a bit more alive."
+    };
+  }
+
+  return {
+    ru: "Ответ сохранен. Смело: даже короткая попытка лучше молчания. Теперь добавь одну причину или пример.",
+    en: "Saved. Good: even a short attempt beats silence. Now add one reason or example."
+  };
+}
+
+function buildSuggestion({
+  asksFollowUp,
+  hasReason,
+  topic,
+  usedPhrases,
+  wordCount
+}: {
+  asksFollowUp: boolean;
+  hasReason: boolean;
+  topic: Topic;
+  usedPhrases: string[];
+  wordCount: number;
+}): Record<Language, string> {
+  if (wordCount < 12) {
+    return {
+      ru: "Следующий шаг: скажи еще 1-2 предложения. Формула простая: мнение -> причина -> короткий пример.",
+      en: "Next step: add 1-2 sentences. Simple shape: point -> reason -> quick example."
+    };
+  }
+
+  if (usedPhrases.length === 0) {
+    return {
+      ru: `Попробуй встроить одну фразу Alex: "${topic.phraseBank[0].en}". Не идеально, просто естественно.`,
+      en: `Try to use one Alex phrase: "${topic.phraseBank[0].en}". Not perfectly, just naturally.`
+    };
+  }
+
+  if (!hasReason) {
+    return {
+      ru: "Добавь короткое because/since/that's why. Сразу станет понятнее, почему ты так говоришь.",
+      en: "Add a short because/since/that's why. It makes your point easier to follow."
+    };
+  }
+
+  if (!asksFollowUp) {
+    return {
+      ru: "В конце задай вопрос назад. Так ты звучишь как собеседник, а не как человек, который сдал ответ.",
+      en: "End with a question back. Then you sound like a conversation partner, not someone submitting an answer."
+    };
+  }
+
+  return {
+    ru: "Теперь произнеси ответ еще раз чуть медленнее и увереннее. Полировка идет после речи, не вместо нее.",
+    en: "Now say it again a bit slower and more confidently. Polish after speaking, not instead of speaking."
+  };
+}
+
+function findUsedPhrases(exchange: DialogueExchange, normalizedAnswer: string) {
+  return exchange.phraseNotes
+    .filter((note) => phraseMatches(note.phrase, normalizedAnswer))
+    .map((note) => note.phrase);
+}
+
+function phraseMatches(phrase: string, normalizedAnswer: string) {
+  const normalizedPhrase = normalize(phrase)
+    .replace("verb ing", "")
+    .replace("x", "")
+    .replace("y", "")
+    .trim();
+
+  if (!normalizedPhrase) {
+    return false;
+  }
+
+  if (normalizedAnswer.includes(normalizedPhrase)) {
+    return true;
+  }
+
+  const phraseTokens = normalizedPhrase.split(" ").filter((token) => token.length > 2);
+  if (phraseTokens.length === 0) {
+    return false;
+  }
+
+  const matched = phraseTokens.filter((token) => normalizedAnswer.includes(token)).length;
+  return matched / phraseTokens.length >= 0.65;
 }
 
 function findCommonIssues(text: string): Record<Language, string>[] {
@@ -103,67 +183,59 @@ function findCommonIssues(text: string): Record<Language, string>[] {
   const trimmed = text.trim();
 
   if (/(^|\s)i(\s|[,.!?]|$)/.test(text)) {
-    issues.push({
-      ru: "Пиши местоимение I с заглавной буквы: I think, I would say, I agree.",
-      en: "Capitalize the pronoun I: I think, I would say, I agree."
-    });
+    issues.push(shortCorrection("i", "I", "capital I", "заглавная I"));
   }
 
   if (normalized.includes("i am agree")) {
-    issues.push({
-      ru: "В английском говорят I agree, без am. Фраза I am agree воспринимается как ошибка.",
-      en: "Say I agree, not I am agree."
-    });
+    issues.push(shortCorrection("I am agree", "I agree", "no am", "без am"));
+  }
+
+  if (normalized.includes("i very like")) {
+    issues.push(shortCorrection("I very like it", "I really like it", "natural adverb", "естественное наречие"));
   }
 
   if (normalized.includes("people is")) {
-    issues.push({
-      ru: "People обычно требует are: people are worried, people are more likely to notice it.",
-      en: "People usually takes are: people are worried, people are more likely to notice it."
-    });
+    issues.push(shortCorrection("people is", "people are", "plural noun", "множественное число"));
   }
 
   if (/\b(he|she|it)\s+don'?t\b/.test(normalized)) {
-    issues.push({
-      ru: "С he/she/it используй doesn't: he doesn't, she doesn't, it doesn't.",
-      en: "With he/she/it, use doesn't: he doesn't, she doesn't, it doesn't."
-    });
+    issues.push(shortCorrection("he/she/it don't", "he/she/it doesn't", "third person", "3-е лицо"));
   }
 
   if (normalized.includes("more better")) {
-    issues.push({
-      ru: "Better уже означает «лучше», поэтому more better не нужно. Скажи better или much better.",
-      en: "Better already means more good, so avoid more better. Say better or much better."
-    });
+    issues.push(shortCorrection("more better", "better / much better", "better is comparative", "better уже сравнительное"));
+  }
+
+  if (normalized.includes("discuss about")) {
+    issues.push(shortCorrection("discuss about it", "discuss it", "no about", "без about"));
+  }
+
+  if (normalized.includes("depend of")) {
+    issues.push(shortCorrection("depend of", "depend on", "fixed phrase", "устойчивая связка"));
   }
 
   if (trimmed.length > 12 && !/[.!?]$/.test(trimmed)) {
     issues.push({
-      ru: "В конце ответа поставь точку или вопросительный знак: так мысль выглядит завершённой.",
-      en: "Add a final full stop or question mark so the thought feels complete."
+      ru: "no final punctuation -> add . or ? -> finished thought",
+      en: "no final punctuation -> add . or ? -> finished thought"
     });
   }
 
   return issues.slice(0, 3);
 }
 
-function overlapScore(source: string, target: string) {
-  const sourceTokens = new Set(tokenize(source));
-  const targetTokens = tokenize(target);
-
-  if (targetTokens.length === 0) {
-    return 0;
-  }
-
-  const overlap = targetTokens.filter((token) => sourceTokens.has(token)).length;
-  return overlap / targetTokens.length;
+function shortCorrection(original: string, improved: string, noteEn: string, noteRu: string): Record<Language, string> {
+  return {
+    ru: `${original} -> ${improved} -> ${noteRu}`,
+    en: `${original} -> ${improved} -> ${noteEn}`
+  };
 }
 
 function tokenize(value: string) {
   return normalize(value)
     .split(" ")
     .map((token) => token.trim())
-    .filter((token) => token.length > 2);
+    .filter((token) => token.length > 1);
 }
 
 function normalize(value: string) {

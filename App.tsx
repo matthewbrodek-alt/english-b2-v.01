@@ -114,61 +114,61 @@ const grammarTasks: GrammarTask[] = [
   {
     correctIndex: 0,
     explanation: {
-      en: "A2 focuses on clear simple sentences. 'I usually study in the evening' is correct present simple.",
-      ru: "A2 тренирует простые ясные предложения. 'I usually study in the evening' - правильный present simple."
+      en: "This sounds natural because it gives a real plan without over-explaining.",
+      ru: "Это звучит естественно: есть настоящий план без лишней учебной тяжести."
     },
-    options: ["I usually study in the evening.", "I usually studying in the evening.", "I am usually study in the evening."],
+    options: ["I'm thinking of taking Sunday off.", "I think to take Sunday off.", "I am thinking take Sunday off."],
     prompt: {
-      en: "A2 foundation: choose the clear present simple sentence.",
-      ru: "A2 база: выбери ясное предложение в present simple."
+      en: "Alex accuracy: choose the natural way to talk about a soft plan.",
+      ru: "Точность Alex: выбери естественный способ сказать о неокончательном плане."
     }
   },
   {
     correctIndex: 0,
     explanation: {
-      en: "B1 adds experience and clarification. Present perfect is natural with 'already'.",
-      ru: "B1 добавляет опыт и уточнение. Present perfect естественно работает с 'already'."
+      en: "This is a warm disagreement: you accept the point before adding your view.",
+      ru: "Это мягкое несогласие: сначала принимаешь мысль, потом добавляешь свою позицию."
     },
-    options: ["I have already checked the plan.", "I already check the plan yesterday.", "I have check the plan."],
+    options: ["I see where you're coming from, but I see it differently.", "You are wrong and I don't like this.", "I see from where you come but I disagree it."],
     prompt: {
-      en: "B1 interaction: choose the sentence that reports completed experience.",
-      ru: "B1 общение: выбери предложение о завершенном опыте."
+      en: "Alex accuracy: choose the polite disagreement.",
+      ru: "Точность Alex: выбери вежливое несогласие."
     }
   },
   {
     correctIndex: 0,
     explanation: {
-      en: "B2 needs balanced argument. The second conditional gives a careful hypothetical answer.",
-      ru: "B2 требует взвешенной аргументации. Second conditional помогает говорить о гипотетической ситуации."
+      en: "A discovery call needs open questions, not a rushed solution.",
+      ru: "На discovery call нужны открытые вопросы, а не поспешное решение."
     },
-    options: ["If I had more time, I would explain the reason.", "If I have more time, I would explained the reason.", "If I had more time, I will explained the reason."],
+    options: ["Walk me through how you're handling this now.", "I know your problem and I fix it.", "Tell me all things immediately."],
     prompt: {
-      en: "B2 argument: choose the correct hypothetical sentence.",
-      ru: "B2 аргументация: выбери правильное гипотетическое предложение."
+      en: "Business speaking: choose the best discovery-call question.",
+      ru: "Деловая речь: выбери лучший вопрос для discovery call."
     }
   },
   {
     correctIndex: 0,
     explanation: {
-      en: "B2+ uses emphasis and nuance. 'What matters most is...' highlights the priority naturally.",
-      ru: "B2+ тренирует акцент и нюанс. 'What matters most is...' естественно выделяет главное."
+      en: "This handles price without panic-discounting.",
+      ru: "Так ты работаешь с ценой без панической скидки."
     },
-    options: ["What matters most is the next step.", "What matters most it is the next step.", "Most matter is next step."],
+    options: ["Let's separate price from value for a second.", "I make discount because you don't like price.", "Price is price, no talk."],
     prompt: {
-      en: "B2+ fluency: choose the natural cleft sentence.",
-      ru: "B2+ беглость: выбери естественную фразу с выделением главного."
+      en: "Business speaking: choose the calm price-objection line.",
+      ru: "Деловая речь: выбери спокойную реакцию на возражение по цене."
     }
   },
   {
     correctIndex: 0,
     explanation: {
-      en: "C1 needs professional precision. 'There is a strong case for...' introduces a reasoned position.",
-      ru: "C1 требует профессиональной точности. 'There is a strong case for...' вводит аргументированную позицию."
+      en: "A good follow-up gives the prospect space and a simple next step.",
+      ru: "Хороший follow-up оставляет человеку пространство и дает простой следующий шаг."
     },
-    options: ["There is a strong case for changing the plan.", "There is strong case to changing the plan.", "Strong case is change plan."],
+    options: ["No worries if now's not the right time. Should I check back in a month instead?", "Why you don't answer me?", "I wait you answer urgent."],
     prompt: {
-      en: "C1 precision: choose the professional sentence.",
-      ru: "C1 точность: выбери профессионально звучащее предложение."
+      en: "Business speaking: choose the non-pushy follow-up.",
+      ru: "Деловая речь: выбери ненавязчивый follow-up."
     }
   }
 ];
@@ -653,12 +653,12 @@ function DashboardScreen({
       <View style={styles.learningPanel}>
         <Text style={styles.panelTitle}>{t("allSections")}</Text>
         <View style={styles.sectionShortcutGrid}>
-          <SectionShortcut icon={<BookOpen color={palette.skyDark} size={22} />} title={t("courseMap")} text={language === "ru" ? "Пошаговая программа A2-C1 из 60 уроков." : "A 60-lesson A2-C1 step-by-step course."} onPress={onOpenCourse} t={t} />
-          <SectionShortcut icon={<Search color={palette.skyDark} size={22} />} title={t("topics")} text={language === "ru" ? "Каталог всех бытовых, научных и рабочих тем." : "Catalog of everyday, science, and work topics."} onPress={onOpenTopics} t={t} />
-          <SectionShortcut icon={<BookOpen color={palette.green} size={22} />} title={t("dictionary")} text={language === "ru" ? "Слова с переводом и озвучкой." : "Words with translation and audio."} onPress={onOpenDictionary} t={t} />
-          <SectionShortcut icon={<ListChecks color={palette.orange} size={22} />} title={t("homework")} text={language === "ru" ? "Задания после урока и повторение." : "After-lesson assignments and review."} onPress={onOpenHomework} t={t} />
-          <SectionShortcut icon={<Brain color={palette.purple} size={22} />} title={t("trainer")} text={language === "ru" ? "Грамматика, связки и точность по уровням A2-C1." : "Grammar, connectors, and accuracy for A2-C1."} onPress={onOpenTrainer} t={t} />
-          <SectionShortcut icon={<Mic color={palette.pink} size={22} />} title={t("speakingRoom")} text={language === "ru" ? "Короткие голосовые разогревы." : "Short voice warm-ups."} onPress={onOpenSpeaking} t={t} />
+          <SectionShortcut icon={<BookOpen color={palette.skyDark} size={22} />} title={t("courseMap")} text={language === "ru" ? "60 разговорных сессий B1-B2 с Alex." : "60 B1-B2 spoken coaching sessions with Alex."} onPress={onOpenCourse} t={t} />
+          <SectionShortcut icon={<Search color={palette.skyDark} size={22} />} title={t("topics")} text={language === "ru" ? "Бытовые темы и freelance/business English пополам." : "Everyday topics plus freelance/business English."} onPress={onOpenTopics} t={t} />
+          <SectionShortcut icon={<BookOpen color={palette.green} size={22} />} title={t("dictionary")} text={language === "ru" ? "Живые фразы с переводом, примером и озвучкой." : "Natural phrases with translation, examples, and audio."} onPress={onOpenDictionary} t={t} />
+          <SectionShortcut icon={<ListChecks color={palette.orange} size={22} />} title={t("homework")} text={language === "ru" ? "Задания после сессии и повторение фраз." : "After-session tasks and phrase review."} onPress={onOpenHomework} t={t} />
+          <SectionShortcut icon={<Brain color={palette.purple} size={22} />} title={t("trainer")} text={language === "ru" ? "Точность в живых репликах без лекций." : "Accuracy in natural replies, without lectures."} onPress={onOpenTrainer} t={t} />
+          <SectionShortcut icon={<Mic color={palette.pink} size={22} />} title={t("speakingRoom")} text={language === "ru" ? "Короткие голосовые разогревы и roleplay." : "Short voice warm-ups and roleplay."} onPress={onOpenSpeaking} t={t} />
           <SectionShortcut icon={<Repeat2 color={palette.skyDark} size={22} />} title={t("review")} text={language === "ru" ? "Слабые фразы из ошибок." : "Weak phrases from mistakes."} onPress={onOpenReview} t={t} />
           <SectionShortcut icon={<User color={palette.skyDark} size={22} />} title={t("profile")} text={language === "ru" ? "Прогресс, попытки и выход." : "Progress, attempts, and sign out."} onPress={onOpenProfile} t={t} />
         </View>
@@ -715,7 +715,7 @@ function CourseScreen({
           <View>
             <Text style={styles.kicker}>{t("courseMap")}</Text>
             <Text style={styles.panelTitle}>
-              {language === "ru" ? "Путь ученика A2-C1" : "A2-C1 learner path"}
+              {language === "ru" ? "Путь разговорной практики B1-B2" : "B1-B2 speaking path"}
             </Text>
           </View>
           <View style={styles.progressBadge}>
